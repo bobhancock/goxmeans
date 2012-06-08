@@ -13,7 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"io"
+	"math"
+	"math/rand"
 	"code.google.com/p/gomatrix/matrix"
+	"matutil"
 )
 
 // Atof64 is shorthand for ParseFloat(s, 64)
@@ -73,3 +76,36 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 	datamatrix = matrix.MakeDenseMatrix(data, len(data)/numcols, numcols)
 	return datamatrix, nil
 }
+
+// randcent picks random centroids 
+func RandCentroids(mat *matrix.DenseMatrix, k int) (matrix.DenseMatrix) {
+	rows,cols := mat.GetSize()
+	minj := 0
+	for j := 0; j <  cols; j++ {
+		r := matutil.ColSlice(mat, j)
+		// min value from each column
+		for _, val := range r {
+			minj := math.Min(minj, val)
+		}
+
+		// max value from each column
+		maxj := 0
+		for _,val = range r {
+			maxj := math.Max(maxj, val)
+		}
+
+		// create a slice of random centroids 
+		// base on minj + rangeJ * random num based on k
+		rands := make([]float64, rows)
+		for i := 0; i < rows; i++ {
+			rands = appeand(rands,  maxj - minj * rand.Float64())
+		}
+
+		centroids, err := AppendCol(mat, rands)
+		if err != nil {
+			return centroids, errors.New(fmt.Sprintf("means: RandCentroids could not append column.  err=%v", err))
+		}
+	}
+	return centroids
+}
+
