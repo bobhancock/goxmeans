@@ -42,7 +42,7 @@ func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 // with zeros.
 func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, error) {
 	rows, cols := mat.GetSize()
-	err := errors.New("")
+	var err error = nil
 	if len(column) > rows {
 		return matrix.Zeros(1, 1), errors.New(fmt.Sprintf("Cannot append a column with %d elements to an matrix with %d rows.",len(column),rows))
 	}

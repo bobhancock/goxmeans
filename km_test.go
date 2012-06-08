@@ -8,23 +8,21 @@ import (
 	"code.google.com/p/gomatrix/matrix"
 )
 
-func TestInvalidInputAtof64(t *testing.T) {
+func TestAtof64Invalid(t *testing.T) {
 	s := "xyz"
 	if _, err := Atof64(s); err == nil {
 		t.Errorf("err == nil with invalid input %s.", s)
 	}
 }
 
-
-func TestValidInputAtof64(t *testing.T) {
+func TestAtof64Valid(t *testing.T) {
 	s := "1234.5678"
 	if f64, err := Atof64(s); err != nil {
 		t.Errorf("err != nil with input %s. Returned f64=%f,err= %v.", s, f64, err)
 	}
 }
 
-
-func TestColSliceInvalid(t *testing.T) {
+func TestColSliceValid(t *testing.T) {
 	rows := 3
 	columns := 2
 	mat := matrix.MakeDenseMatrix([]float64{1,2,3,4,5,6}, rows, columns)
@@ -34,6 +32,27 @@ func TestColSliceInvalid(t *testing.T) {
 	}
 }
 
+func TestAppendColInvalid(t *testing.T) {
+	rows := 3
+	columns := 2
+	mat := matrix.MakeDenseMatrix([]float64{1,2,3,4,5,6}, rows, columns)
+	col := []float64{1.1,2.2,3.3,4.4}
+	mat, err := AppendCol(mat, col)
+	if err == nil {
+		t.Errorf("AppendCol err=%v", err)
+	}
+}
+
+func TestAppendColValid(t *testing.T) {
+	rows := 3
+	columns := 2
+	mat := matrix.MakeDenseMatrix([]float64{1,2,3,4,5,6}, rows, columns)
+	col := []float64{1.1,2.2,3.3}
+	mat, err := AppendCol(mat, col)
+	if err != nil {
+		t.Errorf("AppendCol err=%v", err)
+	}
+}
 
 func TestFileNotExistsLoad(t *testing.T) {
 	f := "filedoesnotexist"
@@ -58,7 +77,6 @@ func createtestfile(fname, record string)(int, error) {
 
 	return i, err
 }
-
 
 // Does the input line contain < 2 elements
 func TestInputInvalid(t *testing.T) {
