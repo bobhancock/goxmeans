@@ -25,20 +25,22 @@ func Atof64(s string) (f float64, err error) {
 }
 
 // ColSlice puts the values in column i of a matrix as a slice
-func ColSlice(mat matrix.Matrix, i int) []float64 {
+func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 	rows, _ := mat.GetSize()
 	r := make([]float64, rows)
 	for j := 0; j <  rows; j++ {
-		r = append(r, mat.Get(j, i))
+		r[j] =  mat.Get(j, col)
 	}
 	return r
 }
+
+//TODO func DenseMatrixToSlice(mat *DenseMatrix)
 
 // AppendCol appends column to and existing matrix.  If length of column
 // is greater than the number of rows in the matrix, and error is returned.
 // If the length of column is less than the number of rows, the column is padded
 // with zeros.
-func AppendCol(mat matrix.Matrix, column []float64) (*matrix.DenseMatrix, error) {
+func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, error) {
 	rows, cols := mat.GetSize()
 	err := errors.New("")
 	if len(column) > rows {
@@ -49,10 +51,11 @@ func AppendCol(mat matrix.Matrix, column []float64) (*matrix.DenseMatrix, error)
 	// the first row, the 2nd C elements hold the data in the 2nd row, etc.
 	source := make([]float64, rows * cols + len(column))
 	for i := 0; i < rows; i++ {
-		for j := 0; j < cols; j++ {
-			source = append(source, mat.Get(i,j))
+		j := 0
+		for ; j < cols; j++ {
+			source[j] = mat.Get(i, j)
 		}
-		source = append(source, column[i])
+		source[j] = column[i]
 	}
 	return matrix.MakeDenseMatrix(source, rows, cols + 1), err
 }
