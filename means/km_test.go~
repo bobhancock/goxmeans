@@ -1,5 +1,0 @@
-package xmeans
-
-import (
-	"testing"
-)
