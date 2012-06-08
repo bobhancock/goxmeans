@@ -12,6 +12,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"io"
 	"code.google.com/p/gomatrix/matrix"
 )
 
@@ -36,23 +37,27 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 	defer fp.Close()
 
 	r := bufio.NewReader(fp)
-	linenum := 0
-	for {
-		line, isp, err := r.ReadLine()
-		if err != nil {
+	linenum := 1
+	eof := false
+	for !eof {
+		var line string
+		line, err := r.ReadString('\n')
+		if err == io.EOF {
+			err = nil
+			eof = true
+			break
+		} else 	if err != nil {
 			return datamatrix, errors.New(fmt.Sprintf("means: reading linenum %d: %v", linenum, err))
-		}
-		if isp {
-			return datamatrix, errors.New(fmt.Sprintf("means: linenum %d too long: %d", linenum, len(line)))
-		}
+		} 
+//		fmt.Printf("debug: linenum=%d line=%s\n", linenum, line)
+
 		linenum++
-		l0 := string(line)
-		l1 := strings.TrimRight(l0, "\n")
+		l1 := strings.TrimRight(line, "\n")
 		l := strings.Split(l1, "\t")
 		if len(l) < 2 {
 			return datamatrix, errors.New(fmt.Sprintf("means: linenum %d has only %d elements", linenum, len(line)))
 		}
-		fmt.Printf("l = %v\n", l)
+
 		// for now assume 2 dimensions only
 		f0, err := Atof64(string(l[0]))
 		if err != nil {
@@ -62,7 +67,6 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 		if err != nil {
 			return datamatrix, errors.New(fmt.Sprintf("means: cannot convert %s to float64.", l[linenum][1]))
 		}
-
 		data = append(data, f0, f1)
 	}
 	numcols := 2
