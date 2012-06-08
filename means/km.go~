@@ -1,0 +1,53 @@
+package xmeans
+
+import (
+	"fmt"
+	"os"
+	"bufio"
+	"errors"
+	"strconv"
+	"strings"
+)
+
+// Shorthand for ParseFloat(s, 64)
+func Atof64(s string) (f float64, err error) {
+	f64, err := strconv.ParseFloat(s, 64)
+	return float64(f64), err
+}
+
+	
+// Load a tab delimited text file of floats into a slice.
+// Assume last column is the target.
+func Load(fname string) ([][]string, error)  {
+	datamatrix := make([][]string, 1024, 1024)
+	fp, err := os.Open(fname)
+	if err != nil {
+		return datamatrix, err
+	}
+	defer fp.Close()
+
+	r := bufio.NewReader(fp)
+	linenum := 0
+	for {
+		line, isp, err := r.ReadLine()
+		if err != nil {
+			return datamatrix, errors.New(fmt.Sprintf("means: reading linenum %d: %v", linenum, err))
+		}
+		if isp {
+			return datamatrix, errors.New(fmt.Sprintf("means: linenum %d too long: %d", linenum, len(line)))
+		}
+		l := string(line).strings.TrimRight("\n").string.Split("\t")
+		fmt.Printf("l = %v\n", l)
+		// convert to floats 
+		// for now assume 2 dimensions only
+		// load into datamatrix
+		// encapsulate error routine
+		f0, err := Atof64(l[linenum][0])
+		if err != nil {
+			return datamatrix, errors.New(fmt.Sprintf("means: cannot convert %s to float64.", l[linenum][0]))
+		}
+		datamatrix[linenum][0] = l[0]
+		datamatrix[linenum][1] = l[1]
+	}
+	return datamatrix, nil
+}
