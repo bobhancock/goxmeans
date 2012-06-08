@@ -1,9 +1,9 @@
 /*
- Package xmeans implements a simple library for the xmeans algorithm.
+ Package gomeans implements a simple library for the xmeans algorithm.
 
  See Dan Pelleg and Andrew Moore: X-means: Extending K-means with Efficient Estimation of the Number of Clusters. 
 */
-package xmeans
+package gomeans
 
 import (
 	"fmt"

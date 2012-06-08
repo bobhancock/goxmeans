@@ -1,4 +1,4 @@
-package xmeans
+package gomeans
 
 // Matrix manipulation utilities
 
