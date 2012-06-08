@@ -105,3 +105,18 @@ func TestValidReturnLoad(t *testing.T) {
 		t.Errorf("Load(%s) err=%v", fname, err)
 	}
 }
+
+func TestRandCentroids(t *testing.T) {
+	rows := 3
+	cols := 3
+	data := []float64{1,2,3,4,5,6,7,8,9}
+	mat := matrix.MakeDenseMatrix(data, rows, cols)
+	centroids, err :=  RandCentroids(mat , 6)
+	if err != nil {
+		t.Errorf("RandCentroids err=%v", err)
+	}
+	r,c :=  centroids.GetSize()
+	if r != rows || c != cols {
+		t.Errorf("Returned centroid was %dx%d instead of %dx%d", r,c,rows,cols)
+	}
+}
