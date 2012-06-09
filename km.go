@@ -36,7 +36,7 @@ func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 
 //TODO func DenseMatrixToSlice(mat *DenseMatrix)
 
-// AppendCol appends column to and existing matrix.  If length of column
+// AppendCol appends column to an existing matrix.  If length of column
 // is greater than the number of rows in the matrix, and error is returned.
 // If the length of column is less than the number of rows, the column is padded
 // with zeros.
@@ -87,7 +87,6 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 		} else 	if err != nil {
 			return datamatrix, errors.New(fmt.Sprintf("means: reading linenum %d: %v", linenum, err))
 		} 
-//		fmt.Printf("debug: linenum=%d line=%s\n", linenum, line)
 
 		linenum++
 		l1 := strings.TrimRight(line, "\n")
@@ -112,14 +111,16 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 	return datamatrix, nil
 }
 
-// RandCentroids picks random centroids based on the min and max values in the matrix.
-func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
-	rows,cols := mat.GetSize()
-	centroids := matrix.Zeros(1,1)
+// RandCentroids picks random centroids based on the  min and max values in the matrix
+// and return a k by cols matrix  with the values.  
+func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
+	_,cols := mat.GetSize()
+	centroids := matrix.Zeros(k, cols)
 
-	minj := float64(0)
-	for j := 0; j <  cols; j++ {
-		r := ColSlice(mat, j)
+	for colnum := 0; colnum <  cols; colnum++ {
+		r := ColSlice(mat, colnum)
+
+		minj := float64(0)
 		// min value from column
 		for _, val := range r {
 			minj = math.Min(minj, val)
@@ -133,16 +134,23 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) 
 
 		// create a slice of random centroids 
 		// based on maxj + minJ * random num to stay in range
-		rands := make([]float64, rows)
-		for i := 0; i < rows; i++ {
-			rands = append(rands,  maxj - minj * rand.Float64())
+		rands := make([]float64, k)
+		for i := 0; i < k; i++ {
+			randint := float64(rand.Int())
+			rf := (maxj - minj) * randint
+			for ; rf > maxj ; {
+				if rf > maxj * 3 {
+					rf = rf / maxj
+				} else {
+					rf = rf / 2
+				}
+			}
+			rands[i] = rf
 		}
-
-		centroids, err := AppendCol(mat, rands)
-		if err != nil {
-			return centroids, errors.New(fmt.Sprintf("means: RandCentroids could not append column.  err=%v", err))
+		for h := 0; h < k; h++ {
+			centroids.Set(h,colnum, rands[h])
 		}
 	}
-	return centroids, nil
+	return centroids
 }
 
