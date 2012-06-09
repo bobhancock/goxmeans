@@ -1,11 +1,11 @@
 package goxmeans
 
 import (
-	"testing"
-	"os"
 	"bufio"
-	"fmt"
 	"code.google.com/p/gomatrix/matrix"
+	"fmt"
+	"os"
+	"testing"
 )
 
 func TestAtof64Invalid(t *testing.T) {
@@ -29,7 +29,7 @@ func TestFileNotExistsLoad(t *testing.T) {
 	}
 }
 
-func createtestfile(fname, record string)(int, error) {
+func createtestfile(fname, record string) (int, error) {
 	fp, err := os.Create(fname)
 	if err != nil {
 		return 0, err
@@ -55,7 +55,7 @@ func TestInputInvalid(t *testing.T) {
 	}
 	defer os.Remove(fname)
 
-	if _, err := Load(fname);  err == nil {
+	if _, err := Load(fname); err == nil {
 		t.Errorf("err: %v", err)
 	}
 }
@@ -68,7 +68,7 @@ func TestValidReturnLoad(t *testing.T) {
 		t.Errorf("Could not create test file %s err=%v", err)
 	}
 	defer os.Remove(fname)
-	
+
 	if _, err := Load(fname); err != nil {
 		t.Errorf("Load(%s) err=%v", fname, err)
 	}
@@ -78,12 +78,38 @@ func TestRandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
 	k := 4
-	data := []float64{1,2.0,3,-4.945,5,-6.1,7,8,9}
+	data := []float64{1, 2.0, 3, -4.945, 5, -6.1, 7, 8, 9}
 	mat := matrix.MakeDenseMatrix(data, rows, cols)
-	centroids :=  RandCentroids(mat , k)
+	centroids := RandCentroids(mat, k)
 
-	r,c :=  centroids.GetSize()
+	r, c := centroids.GetSize()
 	if r != k || c != cols {
-		t.Errorf("Returned centroid was %dx%d instead of %dx%d", r,c,rows,cols)
+		t.Errorf("Returned centroid was %dx%d instead of %dx%d", r, c, rows, cols)
+	}
+}
+
+func TestComputeCentroid(t *testing.T) {
+	empty := matrix.Zeros(0, 0)
+	_, err := ComputeCentroid(empty)
+	if err == nil {
+		t.Errorf("Did not raise error on empty matrix")
+	}
+	twoByTwo := matrix.Ones(2, 2)
+	centr, err := ComputeCentroid(twoByTwo)
+	if err != nil {
+		t.Errorf("Could not compute centroid, err=%v", err)
+	}
+	expected := matrix.MakeDenseMatrix([]float64{1.0, 1.0}, 1, 2)
+	if !matrix.Equals(centr, expected) {
+		t.Errorf("Incorrect centroid: was %v, should have been %v", expected, centr)
+	}
+	twoByTwo.Set(0, 0, 3.0)
+	expected.Set(0, 0, 2.0)
+	centr, err = ComputeCentroid(twoByTwo)
+	if err != nil {
+		t.Errorf("Could not compute centroid, err=%v", err)
+	}
+	if !matrix.Equals(centr, expected) {
+		t.Errorf("Incorrect centroid: was %v, should have been %v", expected, centr)
 	}
 }
