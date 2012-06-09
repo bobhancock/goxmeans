@@ -6,18 +6,18 @@
 package matutil
 
 import (
-	"fmt"
-	"errors"
-	"math"
 	"code.google.com/p/gomatrix/matrix"
+	"errors"
+	"fmt"
+	"math"
 )
 
 // ColSlice gets the values in column i of a matrix as a slice
 func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 	rows, _ := mat.GetSize()
 	r := make([]float64, rows)
-	for j := 0; j <  rows; j++ {
-		r[j] =  mat.Get(j, col)
+	for j := 0; j < rows; j++ {
+		r[j] = mat.Get(j, col)
 	}
 	return r
 }
@@ -32,12 +32,12 @@ func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, 
 	rows, cols := mat.GetSize()
 	var err error = nil
 	if len(column) > rows {
-		return matrix.Zeros(1, 1), errors.New(fmt.Sprintf("Cannot append a column with %d elements to an matrix with %d rows.",len(column),rows))
+		return matrix.Zeros(1, 1), errors.New(fmt.Sprintf("Cannot append a column with %d elements to an matrix with %d rows.", len(column), rows))
 	}
 	// Put the source array into a slice.
 	// If there are R rows and C columns, the first C elements hold the data in
 	// the first row, the 2nd C elements hold the data in the 2nd row, etc.
-	source := make([]float64, rows * cols + len(column))
+	source := make([]float64, rows*cols+len(column))
 	for i := 0; i < rows; i++ {
 		j := 0
 		for ; j < cols; j++ {
@@ -45,12 +45,12 @@ func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, 
 		}
 		source[j] = column[i]
 	}
-	return matrix.MakeDenseMatrix(source, rows, cols + 1), err
+	return matrix.MakeDenseMatrix(source, rows, cols+1), err
 }
 
 // Pow raises every element of the matrix to power.  Returns a new
 // matrix
-func Pow(mat *matrix.DenseMatrix, power float64)  (*matrix.DenseMatrix) {
+func Pow(mat *matrix.DenseMatrix, power float64) *matrix.DenseMatrix {
 	numRows, numCols := mat.GetSize()
 	raised := matrix.Zeros(numRows, numCols)
 
@@ -64,7 +64,7 @@ func Pow(mat *matrix.DenseMatrix, power float64)  (*matrix.DenseMatrix) {
 
 // SumRows takes the sum of each row in a matrix and returns a 1Xn matrix of
 // the sums.
-func SumRows(mat *matrix.DenseMatrix)  *matrix.DenseMatrix {
+func SumRows(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	numRows, numCols := mat.GetSize()
 	sums := matrix.Zeros(numRows, 1)
 
@@ -79,22 +79,38 @@ func SumRows(mat *matrix.DenseMatrix)  *matrix.DenseMatrix {
 	return sums
 }
 
+// SumCols takes the sum of each column in the matrix and returns a mx1 matrix of
+// the sums.
+func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
+	numRows, numCols := mat.GetSize()
+	sums := matrix.Zeros(1, numCols)
+
+	for j := 0; j < numCols; j++ {
+		i := 0
+		s := 0.0
+		for ; i < numRows; i++ {
+			s += mat.Get(i, j)
+		}
+		sums.Set(0, j, s)
+	}
+	return sums
+}
+
 // DistEclidean finds the Euclidean distance between a centroid
 // a point in the data set.  Arguments are 1x2 matrices.
 // All intermediary l-values except s are matricies. The functions that
 // operate on them can all take nXn matricies as arguments.
 func EuclidDist(centroid *matrix.DenseMatrix, point *matrix.DenseMatrix) float64 {
 	diff := matrix.Difference(centroid, point)
-//	fmt.Printf("diff=%v\n", diff)
+	//	fmt.Printf("diff=%v\n", diff)
 	//square the resulting matrix
 	sqr := Pow(diff, 2)
-//	fmt.Printf("sqr=%v\n", sqr)
+	//	fmt.Printf("sqr=%v\n", sqr)
 	// sum of 1x2 matrix 
 	sum := SumRows(sqr)
-//	fmt.Printf("sum=%v\n", sum)
+	//	fmt.Printf("sum=%v\n", sum)
 	// square root of sum
-	s := sum.Get(0,0)
-//	fmt.Printf("s=%f\n", s)
+	s := sum.Get(0, 0)
+	//	fmt.Printf("s=%f\n", s)
 	return math.Sqrt(s)
 }
-

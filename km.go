@@ -6,17 +6,17 @@
 package goxmeans
 
 import (
-	"fmt"
-	"os"
 	"bufio"
+	"code.google.com/p/gomatrix/matrix"
 	"errors"
-	"strconv"
-	"strings"
+	"fmt"
+	"goxmeans/matutil"
 	"io"
 	"math"
 	"math/rand"
-	"goxmeans/matutil"
-	"code.google.com/p/gomatrix/matrix"
+	"os"
+	"strconv"
+	"strings"
 )
 
 // Atof64 is shorthand for ParseFloat(s, 64)
@@ -28,9 +28,9 @@ func Atof64(s string) (f float64, err error) {
 // Load loads a tab delimited text file of floats into a slice.
 // Assume last column is the target.
 // For now, we limit ourselves to two columns
-func Load(fname string) (*matrix.DenseMatrix, error)  {
-	datamatrix := matrix.Zeros(1, 1);
-	data := make([]float64, 2048) 
+func Load(fname string) (*matrix.DenseMatrix, error) {
+	datamatrix := matrix.Zeros(1, 1)
+	data := make([]float64, 2048)
 
 	fp, err := os.Open(fname)
 	if err != nil {
@@ -48,9 +48,9 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 			err = nil
 			eof = true
 			break
-		} else 	if err != nil {
+		} else if err != nil {
 			return datamatrix, errors.New(fmt.Sprintf("means: reading linenum %d: %v", linenum, err))
-		} 
+		}
 
 		linenum++
 		l1 := strings.TrimRight(line, "\n")
@@ -77,11 +77,11 @@ func Load(fname string) (*matrix.DenseMatrix, error)  {
 
 // RandCentroids picks random centroids based on the  min and max values in the matrix
 // and return a k by cols matrix of the centroids.
-func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
-	_,cols := mat.GetSize()
+func RandCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+	_, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
 
-	for colnum := 0; colnum <  cols; colnum++ {
+	for colnum := 0; colnum < cols; colnum++ {
 		r := matutil.ColSlice(mat, colnum)
 
 		minj := float64(0)
@@ -104,8 +104,8 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 		for i := 0; i < k; i++ {
 			randint := float64(rand.Int())
 			rf := (maxj - minj) * randint
-			for ; rf > maxj ; {
-				if rf > maxj * 3 {
+			for rf > maxj {
+				if rf > maxj*3 {
 					rf = rf / maxj
 				} else {
 					rf = rf / 2
@@ -120,6 +120,7 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 	return centroids
 }
 
+<<<<<<< HEAD
 /* TODO: An interface for all distances 
    should be in a separate distance package
 type Distance interface {
@@ -141,3 +142,17 @@ func kmeans(dataSet *matrix.DenseMatrix, k int) {
 	numRows, numCols = dataSet.GetSize()
 	mat matrix.DenseMatrix
 }
+func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
+	rows, _ := mat.GetSize()
+	vectorSum := matutil.SumCols(mat)
+	if rows == 0 {
+		return vectorSum, errors.New("No points inputted")
+	}
+	vectorSum.Scale(1.0 / float64(rows))
+	return vectorSum, nil
+}
+
+/*func kmeans(data *matrix.DenseMatrix, k int, dist Distance, centroids func(mat *matrix.DenseMatrix, howmany int)) {
+
+}*/
+
