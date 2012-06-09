@@ -8,6 +8,7 @@ package matutil
 import (
 	"fmt"
 	"errors"
+	"math"
 	"code.google.com/p/gomatrix/matrix"
 )
 
@@ -21,12 +22,12 @@ func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 	return r
 }
 
-//TODO func DenseMatrixToSlice(mat *DenseMatrix)
-
 // AppendCol appends column to an existing matrix.  If length of column
 // is greater than the number of rows in the matrix, and error is returned.
 // If the length of column is less than the number of rows, the column is padded
 // with zeros.
+//
+// Returns a new matrix with the column append and leaves the source untouched.
 func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, error) {
 	rows, cols := mat.GetSize()
 	var err error = nil
@@ -46,3 +47,35 @@ func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, 
 	}
 	return matrix.MakeDenseMatrix(source, rows, cols + 1), err
 }
+
+// Pow raises every element of the matrix to power.  Returns a new
+// matrix
+func Pow(mat *matrix.DenseMatrix, power float64)  (*matrix.DenseMatrix) {
+	numRows, numCols := mat.GetSize()
+	raised := matrix.Zeros(numRows, numCols)
+
+	for i := 0; i < numRows; i++ {
+		for j := 0; j < numCols; j++ {
+			raised.Set(i, j, math.Pow(mat.Get(i, j), power))
+		}
+	}
+	return raised
+}
+
+// SumRows takes the sum of each row in a matrix and returns a 1Xn matrix of
+// the sums.
+func SumRows(mat *matrix.DenseMatrix)  *matrix.DenseMatrix {
+	numRows, numCols := mat.GetSize()
+	sums := matrix.Zeros(numRows, 1)
+
+	for i := 0; i < numRows; i++ {
+		j := 0
+		s := 0.0
+		for ; j < numCols; j++ {
+			s += mat.Get(i, j)
+		}
+		sums.Set(i, 0, s)
+	}
+	return sums
+}
+

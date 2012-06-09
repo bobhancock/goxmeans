@@ -36,3 +36,41 @@ func TestAppendColValid(t *testing.T) {
 		t.Errorf("AppendCol err=%v", err)
 	}
 }
+
+func TestPow(t *testing.T) {
+	p00 := float64(3)
+	p01 := float64(4)
+	mat := matrix.MakeDenseMatrix([]float64{p00,p01}, 1, 2)
+	raised := Pow(mat, 2)
+
+	r00 := raised.Get(0,0)
+	if r00 != 9 {
+		t.Errorf("TestPow r00 should be 9, but is %f", r00)
+	}
+	r01 := raised.Get(0,1)
+	if r01 != 16 {
+		t.Errorf("TestPow r01 should be 16, but is %f", r01)
+	}
+}
+
+func TestSumRows(t *testing.T) {
+	p00 := 3.0
+	p01 := 4.0
+	p10 := 3.5
+	p11 := 4.6
+	mat := matrix.MakeDenseMatrix([]float64{p00,p01, p10, p11}, 2, 2)
+	sums := SumRows(mat)
+
+	numRows, numCols := sums.GetSize()
+	if numRows != 2 || numCols != 1 {
+		t.Errorf("SumRows returned a %dx%d matrix.  It should be 2x1.")
+	} 
+	s00 := sums.Get(0,0)
+	if s00 != (p00 + p01) {
+		t.Errorf("SumRows row 0 col 0 is %d.  It should be %d.", s00, p00 + p01)
+	}
+	s10 := sums.Get(1,0)
+	if s10 != (p10 + p11) {
+		t.Errorf("SumRows row 1 col 2 is %d.  It should be %d.", s10, p10 + p11)
+	}
+}
