@@ -1,7 +1,7 @@
 package matutil
 
 import (
-	"fmt"
+//	"fmt"
 	"testing"
 	"math"
 	"code.google.com/p/gomatrix/matrix"
@@ -88,9 +88,9 @@ func TestEuclidDist(t *testing.T) {
 	epsilon := .000001
 	na := math.Nextafter(expectedEd, expectedEd + 1) 
 	diff := math.Abs(calcEd - na) 
-	fmt.Printf("diff=%f\n", diff)
+
 	if diff > epsilon {
-		t.Errorf("diff=%f",diff)
+		t.Errorf("EuclidDistance excpected %f but got %f.  The differenc %f exceeds epsilon %f", expectedEd, calcEd, diff, epsilon)
 	}
 	
 }

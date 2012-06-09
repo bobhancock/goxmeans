@@ -98,6 +98,8 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 
 		// create a slice of random centroids 
 		// based on maxj + minJ * random num to stay in range
+		// TODO: Better randomization or choose centroids 
+		// from datapoints.
 		rands := make([]float64, k)
 		for i := 0; i < k; i++ {
 			randint := float64(rand.Int())
@@ -118,6 +120,24 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 	return centroids
 }
 
-/*func kmeans(data *matrix.DenseMatrix, k int, dist Distance, centroids func(mat *matrix.DenseMatrix, howmany int)) {
+/* TODO: An interface for all distances 
+   should be in a separate distance package
+type Distance interface {
+	Distance()
+}
 
+type CentroidMaker interface {
+	MakeCentroids()
+	k int // number of centroids
+	dataSet *matrix.DenseMatrix  // set of data points
 }*/
+
+
+// TODO: Create Distance interface so that any distance metric, Euclidean, Jacard, etc. can be passed
+// kmeans takes a matrix as input data and attempts to find the best convergence on a set of k centroids.
+//func kmeans(data *matrix.DenseMatrix, k int, dist Distance, maker CentroidMaker) (centroids  *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
+// Get something working with Euclidean and RandCentroids
+func kmeans(dataSet *matrix.DenseMatrix, k int) {
+	numRows, numCols = dataSet.GetSize()
+	mat matrix.DenseMatrix
+}
