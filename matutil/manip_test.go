@@ -1,7 +1,9 @@
 package matutil
 
 import (
+	"fmt"
 	"testing"
+	"math"
 	"code.google.com/p/gomatrix/matrix"
 )
 
@@ -73,4 +75,22 @@ func TestSumRows(t *testing.T) {
 	if s10 != (p10 + p11) {
 		t.Errorf("SumRows row 1 col 2 is %d.  It should be %d.", s10, p10 + p11)
 	}
+}
+
+func TestEuclidDist(t *testing.T) {
+	rows := 1
+	columns := 2
+	centroid := matrix.MakeDenseMatrix([]float64{4.6,9.5}, rows, columns)
+	point := matrix.MakeDenseMatrix([]float64{3.0,4.1}, rows, columns)
+	calcEd := EuclidDist(centroid,point)
+
+	expectedEd := 5.632051 //expected value
+	epsilon := .000001
+	na := math.Nextafter(expectedEd, expectedEd + 1) 
+	diff := math.Abs(calcEd - na) 
+	fmt.Printf("diff=%f\n", diff)
+	if diff > epsilon {
+		t.Errorf("diff=%f",diff)
+	}
+	
 }

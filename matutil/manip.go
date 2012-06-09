@@ -79,3 +79,22 @@ func SumRows(mat *matrix.DenseMatrix)  *matrix.DenseMatrix {
 	return sums
 }
 
+// DistEclidean finds the Euclidean distance between a centroid
+// a point in the data set.  Arguments are 1x2 matrices.
+// All intermediary l-values except s are matricies. The functions that
+// operate on them can all take nXn matricies as arguments.
+func EuclidDist(centroid *matrix.DenseMatrix, point *matrix.DenseMatrix) float64 {
+	diff := matrix.Difference(centroid, point)
+//	fmt.Printf("diff=%v\n", diff)
+	//square the resulting matrix
+	sqr := Pow(diff, 2)
+//	fmt.Printf("sqr=%v\n", sqr)
+	// sum of 1x2 matrix 
+	sum := SumRows(sqr)
+//	fmt.Printf("sum=%v\n", sum)
+	// square root of sum
+	s := sum.Get(0,0)
+//	fmt.Printf("s=%f\n", s)
+	return math.Sqrt(s)
+}
+
