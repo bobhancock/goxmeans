@@ -31,6 +31,7 @@ func Atof64(s string) (f float64, err error) {
 func Load(fname string) (*matrix.DenseMatrix, error) {
 	datamatrix := matrix.Zeros(1, 1)
 	data := make([]float64, 2048)
+	idx := 0
 
 	fp, err := os.Open(fname)
 	if err != nil {
@@ -68,7 +69,15 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		if err != nil {
 			return datamatrix, errors.New(fmt.Sprintf("means: cannot convert %s to float64.", l[linenum][1]))
 		}
-		data = append(data, f0, f1)
+
+		if linenum >= len(data) {
+			data = append(data, f0, f1)
+		} else {
+			data[idx] = f0
+			idx++
+			data[idx] = f1
+			idx++
+		}
 	}
 	numcols := 2
 	datamatrix = matrix.MakeDenseMatrix(data, len(data)/numcols, numcols)
@@ -120,7 +129,6 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	return centroids
 }
 
-<<<<<<< HEAD
 /* TODO: An interface for all distances 
    should be in a separate distance package
 type Distance interface {
@@ -140,8 +148,38 @@ type CentroidMaker interface {
 // Get something working with Euclidean and RandCentroids
 func kmeans(dataSet *matrix.DenseMatrix, k int) {
 	numRows, numCols = dataSet.GetSize()
-	mat matrix.DenseMatrix
+    //Pseudo Code
+	//clusterAssignment - create mat to assign data points to a centroid, also holds SE of each point
+	//clusterChanged = true
+	//centroids = RandCentroids(dataSet, k)
+	/* for ; clusterChanged ; {
+	     clusterChanged = false
+         for i := 0; i < numRows; {  // assign each data point to a centroid
+        	 minDist := float64(0)
+             minIndex := -1
+             for j := 0; j < k; j++ {  // check distance against each centroid
+     	         distJ := matutil.EuclidDist(centroids.getRowVector(j), dataSet.GetRowVector(i))
+                 if distJ < minDist {
+                     minDist = distJ
+                     minIndex = j
+	             } 
+            	 if clusterAssignment.Get(i, 0) != minIndex {
+	                 clusterChanged = true
+	             }
+                 clusterAssignment.Set(i,0) = minIndex
+	             clusterAssignment.Set(i,1) = math.Pow(minDist, 2)
+            	 //TODO: Write SetRowVector(row int, value float64[])
+	         }
+         }
+         for c := 0; c < k; k++ {
+	         pointsInCluster := all non-zero data points in the current cluster c into a matrix
+         	 centroids.SetRowVector(c,  mean(pointsInCluster, axis=0)) #assign centroid to mean 
+	     }
+	    return centroids, clusterAssignment
+     }
+	*/
 }
+
 func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	rows, _ := mat.GetSize()
 	vectorSum := matutil.SumCols(mat)
