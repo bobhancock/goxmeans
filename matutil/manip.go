@@ -79,6 +79,31 @@ func SumRows(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	return sums
 }
 
+// SumCol calculates the sum of the indicated column and returns a float64
+func SumCol(mat *matrix.DenseMatrix, col int) float64 {
+	numRows, _ := mat.GetSize()
+	sum := float64(0)
+
+	for i := 0; i < numRows; i++ {
+		sum += mat.Get(i,col)
+	}
+	return sum
+}
+
+// MeanCols calculates the means of the columns and returns a 1Xn matrix
+func MeanCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
+	numRows, numCols := mat.GetSize()
+	sums := SumCols(mat)
+	means := matrix.MakeDenseMatrix(1, numCols)
+	m := float64(0)
+
+	for j := 0; j < numCols; j++ {
+		m = sums.Get(0, j) / numRows
+		means.Set(0, j, m)
+	}
+	return means
+}
+
 // SumCols takes the sum of each column in the matrix and returns a mx1 matrix of
 // the sums.
 func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
