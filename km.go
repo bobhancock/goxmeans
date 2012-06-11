@@ -146,8 +146,8 @@ type CentroidMaker interface {
 // kmeans takes a matrix as input data and attempts to find the best convergence on a set of k centroids.
 //func kmeans(data *matrix.DenseMatrix, k int, dist Distance, maker CentroidMaker) (centroids  *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
 // Get something working with Euclidean and RandCentroids
-func kmeans(dataSet *matrix.DenseMatrix, k int) {
-	numRows, numCols = dataSet.GetSize()
+func kmeans(dataSet *matrix.DenseMatrix, k int) (*matrix.DenseMatrix,  *matrix.DenseMatrix) {
+	numRows, numCols := dataSet.GetSize()
 
 	clusterAssignment := matrix.Zeros(numRows, numCols)
 	clusterChanged := true
@@ -158,41 +158,47 @@ func kmeans(dataSet *matrix.DenseMatrix, k int) {
         	minDist := float64(0)
             minIndex := -1
             for j := 0; j < k; j++ {  // check distance btwn each point and each centroid
-     	        distJ := matutil.EuclidDist(centroids.getRowVector(j), dataSet.GetRowVector(i))
+     	        distJ := matutil.EuclidDist(centroids.GetRowVector(j), dataSet.GetRowVector(i))
                 if distJ < minDist {
                     minDist = distJ
                     minIndex = j
 	            } 
-            	if clusterAssignment.Get(i, 0) != minIndex {
+            	if clusterAssignment.Get(i, 0) != float64(minIndex) {
 	                clusterChanged = true
 	            }
-                clusterAssignment.Set(i,0) = minIndex
-	            clusterAssignment.Set(i,1) = math.Pow(minDist, 2) //use FillRow()?
+                clusterAssignment.Set(i,0, float64(minIndex))
+	            clusterAssignment.Set(i,1, math.Pow(minDist, 2))
 	        }
         }
-
+		// Now that you have each data point grouped with a centroid, iterate through the cluster
+		// assignment matix and for each centroid retrieve the original ordered pair from dataSet.
         for c := 0; c < k; k++ {
-			/* all rows that have col1 = cluster number 0...k
-			Select all the rows in clusterAssignment whose first col value == k, the second col is the SE distance
-			 Get the corresponding data from data set (the coordinates) and put them in points in cluster
-			*/
-			var pointsInCluster matrix.DenseMatrix = matrix.Zeros(numRows,numCols)
-			for d := 0, e := 0; d < numRows; d++ {
+			// c is the index that identifies the current centroid.
+			// d is the index that identifies a row in clusterAssignment.
+			// Select all the rows in clusterAssignment whose first col value == c, the second col is the SE distance
+			// Get the corresponding data from dataSet and place it in pointsInCluster.
+			var pointsInCluster = matrix.Zeros(numRows,numCols)
+			e := 0
+			for d := 0; d < numRows; d++ {
 				r := clusterAssignment.GetRowVector(d)
-				if r.Get(0,0) == c && r.Get(0,1) != float64(0) {
+				if r.Get(0,0) == float64(c) && r.Get(0,1) != float64(0) {
 					pointsInCluster.Set(e, 0, dataSet.Get(d, 0))
 					pointsInCluster.Set(e, 1, dataSet.Get(d,1))
 					e++
 				}
-				// Fill centroid matrix with means
-				// take the mean of the 2 cols in pointsInCluster and put as ordered pair in centroids
-				means := manip.MeanCols(pointsInCluster)
-				//Start here
-			centroids.SetRowVector(c,  mean(pointsInCluster, axis=0)) //assign centroid to mean 
+				// pointsInClusteris a 1X2 matix that contains the data points from dataSet for the current centroid.
+				// Take the mean of each of the 2 cols in pointsInCluster.
+				means := matutil.MeanCols(pointsInCluster)  // 1x2 matrix that with means of current centroid cluster
+				// Centroids is a kX2 matrix whre the row number corresponds to the centroid and the two
+				// columns are the means of the ordered paris for that centroid cluster.
+				centroids.Set(c, 0, means.Get(c,0))
+				centroids.Set(c, 1, means.Get(c,1))
 			}
-	    return centroids, clusterAssignment
-     }
+		}
+	}
+	return centroids, clusterAssignment
 }
+    
 
 // ComputeCentroids Needs comments.
 func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
@@ -205,7 +211,4 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	return vectorSum, nil
 }
 
-/*func kmeans(data *matrix.DenseMatrix, k int, dist Distance, centroids func(mat *matrix.DenseMatrix, howmany int)) {
-
-}*/
 

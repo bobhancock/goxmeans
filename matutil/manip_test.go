@@ -1,15 +1,11 @@
 package matutil
 
 import (
-<<<<<<< HEAD
+
 //	"fmt"
 	"testing"
-=======
-	"code.google.com/p/gomatrix/matrix"
-	"fmt"
->>>>>>> 3d1168b8c3543780d884a324fb76b3781c9cb4e8
 	"math"
-	"testing"
+	"code.google.com/p/gomatrix/matrix"
 )
 
 func TestColSliceValid(t *testing.T) {
@@ -113,19 +109,13 @@ func TestEuclidDist(t *testing.T) {
 
 	expectedEd := 5.632051 //expected value
 	epsilon := .000001
-<<<<<<< HEAD
+
 	na := math.Nextafter(expectedEd, expectedEd + 1) 
 	diff := math.Abs(calcEd - na) 
 
 	if diff > epsilon {
 		t.Errorf("EuclidDistance excpected %f but got %f.  The differenc %f exceeds epsilon %f", expectedEd, calcEd, diff, epsilon)
-=======
-	na := math.Nextafter(expectedEd, expectedEd+1)
-	diff := math.Abs(calcEd - na)
-	fmt.Printf("diff=%f\n", diff)
-	if diff > epsilon {
-		t.Errorf("diff=%f", diff)
->>>>>>> 3d1168b8c3543780d884a324fb76b3781c9cb4e8
 	}
-
 }
+
+//TODO: test for MeanCols

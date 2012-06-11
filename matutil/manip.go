@@ -94,11 +94,11 @@ func SumCol(mat *matrix.DenseMatrix, col int) float64 {
 func MeanCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	numRows, numCols := mat.GetSize()
 	sums := SumCols(mat)
-	means := matrix.MakeDenseMatrix(1, numCols)
+	means := matrix.Zeros(1, numCols)
 	m := float64(0)
 
 	for j := 0; j < numCols; j++ {
-		m = sums.Get(0, j) / numRows
+		m = sums.Get(0, j) / float64(numRows)
 		means.Set(0, j, m)
 	}
 	return means
