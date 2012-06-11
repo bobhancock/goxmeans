@@ -144,14 +144,13 @@ type CentroidMaker interface {
 
 // TODO: Create Distance interface so that any distance metric, Euclidean, Jacard, etc. can be passed
 // kmeans takes a matrix as input data and attempts to find the best convergence on a set of k centroids.
-//func kmeans(data *matrix.DenseMatrix, k int, dist Distance, maker CentroidMaker) (centroids  *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
-// Get something working with Euclidean and RandCentroids
-func kmeans(dataSet *matrix.DenseMatrix, k int) (*matrix.DenseMatrix,  *matrix.DenseMatrix) {
+// func kmeans(data *matrix.DenseMatrix, k int, dist Distance, maker CentroidMaker) (centroids  *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
+func kmeans(dataSet *matrix.DenseMatrix, k int) (centroids *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
 	numRows, numCols := dataSet.GetSize()
 
-	clusterAssignment := matrix.Zeros(numRows, numCols)
+	clusterAssignment = matrix.Zeros(numRows, numCols)
+	centroids = RandCentroids(dataSet, k)
 	clusterChanged := true
-	centroids := RandCentroids(dataSet, k)
 	for ; clusterChanged ; {
 	    clusterChanged = false
         for i := 0; i < numRows; {  // assign each data point to a centroid
@@ -196,7 +195,7 @@ func kmeans(dataSet *matrix.DenseMatrix, k int) (*matrix.DenseMatrix,  *matrix.D
 			}
 		}
 	}
-	return centroids, clusterAssignment
+	return
 }
     
 
