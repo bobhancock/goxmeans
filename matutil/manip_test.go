@@ -114,7 +114,21 @@ func TestEuclidDist(t *testing.T) {
 	diff := math.Abs(calcEd - na) 
 
 	if diff > epsilon {
-		t.Errorf("EuclidDistance excpected %f but got %f.  The differenc %f exceeds epsilon %f", expectedEd, calcEd, diff, epsilon)
+		t.Errorf("EuclidDistance: excpected %f but received %f.  The difference %f exceeds epsilon %f", expectedEd, calcEd, diff, epsilon)
+	}
+}
+
+
+func TestFiltCol(t *testing.T) {
+	mat := matrix.MakeDenseMatrix([]float64{2,1,4,2,6,3,8,4,10,5}, 5, 2)
+	matches, err := FiltCol(2.0, 4.0, 1, mat)
+	if err != nil {
+		t.Errorf("FiltCol returned error: %v", err)
+		return
+	}
+		
+	if len(matches) != 3 || matches[0] != 2 || matches[1] != 3 || matches[2] != 4 {
+		t.Errorf("FiltCol: expected [2,3,4] but received %v", matches)
 	}
 }
 
