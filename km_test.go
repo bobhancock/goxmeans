@@ -115,7 +115,6 @@ func TestComputeCentroid(t *testing.T) {
 }
 
 func TestAssignPointToCentroid(t *testing.T) {
-	//dataPoint, centroids *matrix.DenseMatrix) (float64, float64, err)  {
 	centroids := matrix.MakeDenseMatrix([]float64{1.0,1.0,100.0,100.0}, 2, 2)
 	datapoint := matrix.MakeDenseMatrix([]float64{2.0, 2.0}, 1, 2)
 	minIndex, _, err := AssignPointToCentroid(datapoint,centroids)
@@ -124,5 +123,14 @@ func TestAssignPointToCentroid(t *testing.T) {
 	}
 	if minIndex != 0 {
 		t.Errorf("AssignCentroid returned minIndex=%f instead of MinIndex=0.", minIndex)
+	}
+}
+
+func TestAssignPointToCentroidErr(t *testing.T) {
+	centroids := matrix.MakeDenseMatrix([]float64{1.0,1.0,100.0,100.0}, 2, 2)
+	datapoint := matrix.Zeros(4,4)
+	_, _, err := AssignPointToCentroid(datapoint,centroids)
+	if err == nil {
+		t.Errorf("AssginCentroid should returned error.  Passed datapoint matrix with %d rows.", 4)
 	}
 }
