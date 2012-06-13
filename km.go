@@ -7,16 +7,16 @@ package goxmeans
 
 import (
 	"bufio"
-	"code.google.com/p/gomatrix/matrix"
 	"errors"
 	"fmt"
-	"goxmeans/matutil"
 	"io"
 	"math"
 	"math/rand"
 	"os"
 	"strconv"
 	"strings"
+	"code.google.com/p/gomatrix/matrix"
+	"goxmeans/matutil"
 )
 
 // Atof64 is shorthand for ParseFloat(s, 64)
@@ -129,6 +129,17 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	return centroids
 }
 
+// ComputeCentroids Needs comments.
+func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
+	rows, _ := mat.GetSize()
+	vectorSum := matutil.SumCols(mat)
+	if rows == 0 {
+		return vectorSum, errors.New("No points inputted")
+	}
+	vectorSum.Scale(1.0 / float64(rows))
+	return vectorSum, nil
+}
+
 /* TODO: An interface for all distances 
    should be in a separate distance package
 type Distance interface {
@@ -143,71 +154,133 @@ type CentroidMaker interface {
 
 
 // TODO: Create Distance interface so that any distance metric, Euclidean, Jacard, etc. can be passed
-// kmeans takes a matrix as input data and attempts to find the best convergence on a set of k centroids.
-// func kmeans(data *matrix.DenseMatrix, k int, dist Distance, maker CentroidMaker) (centroids  *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
-func kmeans(dataSet *matrix.DenseMatrix, k int) (centroids *matrix.DenseMatrix, clusterAssignment *matrix.DenseMatrix) {
-	numRows, numCols := dataSet.GetSize()
+// kmeans takes a matrix of data points as input dataPoints and attempts to find the best convergence on a set of k centroids.
+// func kmeans(data *matrix.DenseMatrix, k int, dist Distance, maker CentroidMaker) (centroids  *matrix.DenseMatrix, clusterAssessment *matrix.DenseMatrix) {
+/*func kmeans(dataPoints *matrix.DenseMatrix, k int) (centroids *matrix.DenseMatrix, clusterAssessment *matrix.DenseMatrix) {
+	numRows, numCols := dataPoints.GetSize()
 
-	clusterAssignment = matrix.Zeros(numRows, numCols)
-	centroids = RandCentroids(dataSet, k)
+	clusterAssessment = matrix.Zeros(numRows, numCols)
+	centroids = RandCentroids(dataPoints, k)
 	clusterChanged := true
+
 	for ; clusterChanged ; {
 	    clusterChanged = false
         for i := 0; i < numRows; {  // assign each data point to a centroid
         	minDist := float64(0)
             minIndex := -1
-            for j := 0; j < k; j++ {  // check distance btwn each point and each centroid
-     	        distJ := matutil.EuclidDist(centroids.GetRowVector(j), dataSet.GetRowVector(i))
+            for j := 0; j < k; j++ {  // check distance btwn point and each centroid
+     	        distJ := matutil.EuclidDist(centroids.GetRowVector(j), dataPoints.GetRowVector(i))
                 if distJ < minDist {
                     minDist = distJ
                     minIndex = j
 	            } 
-            	if clusterAssignment.Get(i, 0) != float64(minIndex) {
+            	if clusterAssessment.Get(i, 0) != float64(minIndex) {
 	                clusterChanged = true
 	            }
-                clusterAssignment.Set(i,0, float64(minIndex))
-	            clusterAssignment.Set(i,1, math.Pow(minDist, 2))
+                clusterAssessment.Set(i,0, float64(minIndex)) 
+	            clusterAssessment.Set(i,1, math.Pow(minDist, 2)) 
 	        }
         }
 		// Now that you have each data point grouped with a centroid, iterate through the cluster
-		// assignment matix and for each centroid retrieve the original ordered pair from dataSet.
+		// assignment matix and for each centroid retrieve the original ordered pair from dataPoints.
         for c := 0; c < k; k++ {
 			// c is the index that identifies the current centroid.
-			// d is the index that identifies a row in clusterAssignment.
-			// Select all the rows in clusterAssignment whose first col value == c, the second col is the SE distance
-			// Get the corresponding data from dataSet and place it in pointsInCluster.
+			// d is the index that identifies a row in clusterAssessment.
+			// Select all the rows in clusterAssessment whose first col value == c, the second col is the SE distance
+			// Get the corresponding data from dataPoints and place it in pointsInCluster.
 			var pointsInCluster = matrix.Zeros(numRows,numCols)
 			e := 0
 			for d := 0; d < numRows; d++ {
-				r := clusterAssignment.GetRowVector(d)
+				r := clusterAssessment.GetRowVector(d)
 				if r.Get(0,0) == float64(c) && r.Get(0,1) != float64(0) {
-					pointsInCluster.Set(e, 0, dataSet.Get(d, 0))
-					pointsInCluster.Set(e, 1, dataSet.Get(d,1))
+					pointsInCluster.Set(e, 0, dataPoints.Get(d, 0))
+					pointsInCluster.Set(e, 1, dataPoints.Get(d,1))
 					e++
 				}
-				// pointsInClusteris a 1X2 matix that contains the data points from dataSet for the current centroid.
+				// pointsInClusteris a nX2 matix that contains the data points from dataPoints for the current centroid.
 				// Take the mean of each of the 2 cols in pointsInCluster.
-				means := matutil.MeanCols(pointsInCluster)  // 1x2 matrix that with means of current centroid cluster
+				means := matutil.MeanCols(pointsInCluster)  // 1x2 matrix with the mean coordinates of the current centroid
 				// Centroids is a kX2 matrix whre the row number corresponds to the centroid and the two
-				// columns are the means of the ordered paris for that centroid cluster.
+				// columns are the means of the coordinates for that centroid cluster.
 				centroids.Set(c, 0, means.Get(c,0))
 				centroids.Set(c, 1, means.Get(c,1))
 			}
 		}
 	}
+	// N.B. The sum of squared errors in the sum of col 1 in clusterAssessment.
+	return
+}*/
+    
+func kmeans(dataPoints *matrix.DenseMatrix, k int) (centroids *matrix.DenseMatrix, clusterAssessment *matrix.DenseMatrix, err error) {
+	numRows, numCols := dataPoints.GetSize()
+	clusterAssessment = matrix.Zeros(numRows, numCols)
+	centroids = RandCentroids(dataPoints, k)
+	clusterChanged := true
+
+	for ; clusterChanged ; {
+	    clusterChanged = false
+        for i := 0; i < numRows; {  // assign each data point to a centroid
+			//TODO: put each in a goroutine
+			dataPoint := dataPoints.GetRowVector(i)
+			minIndex, minDist,err := AssignCentroid(dataPoints, centroids)
+			if err != nil {
+				return centroids, clusterAssessment, errors.New(fmt.Sprintf("kmeans: AssignCentroid() error on row %d of dataPoint=%v  err=%v", i, dataPoint, err))
+			}
+			if clusterAssessment.Get(i, 0) != float64(minIndex) {
+				clusterChanged = true
+			}
+            clusterAssessment.Set(i,0, float64(minIndex)) 
+	        clusterAssessment.Set(i, 1, minDist)
+        }
+		// Now that you have each data point grouped with a centroid, iterate through the cluster
+		// assignment matix and for each centroid retrieve the original ordered pair from dataPoints.
+        for c := 0; c < k; k++ {
+			// c is the index that identifies the current centroid.
+			// d is the index that identifies a row in clusterAssessment.
+			// Select all the rows in clusterAssessment whose first col value == c, the second col is the SE distance
+			// Get the corresponding data from dataPoints and place it in pointsInCluster.
+			var pointsInCluster = matrix.Zeros(numRows,numCols)
+			e := 0
+			for d := 0; d < numRows; d++ {
+				r := clusterAssessment.GetRowVector(d)
+				if r.Get(0,0) == float64(c) && r.Get(0,1) != float64(0) {
+					pointsInCluster.Set(e, 0, dataPoints.Get(d, 0))
+					pointsInCluster.Set(e, 1, dataPoints.Get(d,1))
+					e++
+				}
+				// pointsInClusteris a nX2 matix that contains the data points from dataPoints for the current centroid.
+				// Take the mean of each of the 2 cols in pointsInCluster.
+				means := matutil.MeanCols(pointsInCluster)  // 1x2 matrix with the mean coordinates of the current centroid
+				// Centroids is a kX2 matrix whre the row number corresponds to the centroid and the two
+				// columns are the means of the coordinates for that centroid cluster.
+				centroids.Set(c, 0, means.Get(c,0))
+				centroids.Set(c, 1, means.Get(c,1))
+			}
+		}
+	}
+	// N.B. The sum of squared errors in the sum of col 1 in clusterAssessment.
 	return
 }
-    
 
-// ComputeCentroids Needs comments.
-func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
-	rows, _ := mat.GetSize()
-	vectorSum := matutil.SumCols(mat)
-	if rows == 0 {
-		return vectorSum, errors.New("No points inputted")
+// AssignCentroid checks a data point against all centroids and returns the best match.
+// dataPoint is a 1X2 vector representing one data point.
+func AssignCentroid(dataPoint, centroids *matrix.DenseMatrix) (float64, float64, error)  {
+	r,c := dataPoint.GetSize()
+	if r > 1 {
+		return float64(-1), float64(-1), errors.New(fmt.Sprintf("dataPoint must be a 1X2 matrix.  It is %dX%d.", r, c))
 	}
-	vectorSum.Scale(1.0 / float64(rows))
-	return vectorSum, nil
+    minDist := math.Inf(1)
+    minIndex := float64(-1)
+	dist := float64(0)
+	k, _ := centroids.GetSize()
+
+    for j := 0; j < k; j++ {  // check distance btwn point and each centroid
+     	distJ := matutil.EuclidDist(centroids.GetRowVector(j), dataPoint)
+        if distJ < minDist {
+            minDist = distJ
+            minIndex = float64(j)
+	    } 
+ 		dist = math.Pow(minDist, 2)
+	  }
+	return minIndex, dist, nil
 }
-
-
