@@ -127,8 +127,8 @@ func TestFiltCol(t *testing.T) {
 		return
 	}
 		
-	if len(matches) != 3 || matches[0] != 2 || matches[1] != 3 || matches[2] != 4 {
-		t.Errorf("FiltCol: expected [2,3,4] but received %v", matches)
+	if len(matches) != 3 || matches[1] != 2 || matches[2] != 3 || matches[3] != 4 {
+		t.Errorf("FiltCol: expected matches[1]=2, matches[2]=3, matches[3]=4, but received %v", matches)
 	}
 }
 

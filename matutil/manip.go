@@ -121,24 +121,25 @@ func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	return sums
 }
 
-// FiltCol returns the values that match min <= A <= max for specified column.
-func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) ([]float64, error) {
+// FiltCol find values that match min <= A <= max for specified column.
+// Return
+//   map[int]float64 - key is the row number in mat, and the value is the value in the column specified by col.
+func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (map[int]float64, error) {
 	r,c := mat.GetSize()
-	match := make([]float64, r)
+	matches := make(map[int]float64)
 	
 	if col < 0 || col > c - 1 {
-		return match, errors.New(fmt.Sprintf("matutil: Expected col vaule in range 0 to %d.  Received %d\n", c -1, col))
+		return matches, errors.New(fmt.Sprintf("matutil: Expected col vaule in range 0 to %d.  Received %d\n", c -1, col))
 	}
 
-	matches := 0
 	for i := 0; i < r; i++ {
 		v := mat.Get(i, col)
+//		fmt.Printf("i=%d v=%v\n",i, v)
 		if v >= min &&  v <= max {
-			match[matches] = v
-			matches++
+			matches[i] = v
 		}
 	}
-	return match[:matches], nil
+	return matches, nil
  }
 
 // DistEclidean finds the Euclidean distance between a centroid
