@@ -113,3 +113,16 @@ func TestComputeCentroid(t *testing.T) {
 		t.Errorf("Incorrect centroid: was %v, should have been %v", expected, centr)
 	}
 }
+
+func TestAssignPointToCentroid(t *testing.T) {
+	//dataPoint, centroids *matrix.DenseMatrix) (float64, float64, err)  {
+	centroids := matrix.MakeDenseMatrix([]float64{1.0,1.0,100.0,100.0}, 2, 2)
+	datapoint := matrix.MakeDenseMatrix([]float64{2.0, 2.0}, 1, 2)
+	minIndex, _, err := AssignPointToCentroid(datapoint,centroids)
+	if err != nil {
+		t.Errorf("AssignCentroid returned: %v", err)
+	}
+	if minIndex != 0 {
+		t.Errorf("AssignCentroid returned minIndex=%f instead of MinIndex=0.", minIndex)
+	}
+}
