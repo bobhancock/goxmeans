@@ -44,30 +44,37 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 	eof := false
 	for !eof {
 		var line string
-		line, err := r.ReadString('\n')
+		var buf []byte
+//		line, err := r.ReadString('\n')
+		buf , _, err := r.ReadLine()
+		line = string(buf)
+	//	fmt.Printf("linenum=%d buf=%v line=%v\n",linenum,buf, line)
+
 		if err == io.EOF {
 			err = nil
 			eof = true
 			break
 		} else if err != nil {
-			return datamatrix, errors.New(fmt.Sprintf("means: reading linenum %d: %v", linenum, err))
+			return datamatrix, errors.New(fmt.Sprintf("means.Load: reading linenum %d: %v", linenum, err))
 		}
 
 		linenum++
 		l1 := strings.TrimRight(line, "\n")
 		l := strings.Split(l1, "\t")
+//		fmt.Printf("linenum=%d l=%v\n",linenum,l)
 		if len(l) < 2 {
-			return datamatrix, errors.New(fmt.Sprintf("means: linenum %d has only %d elements", linenum, len(line)))
+			return datamatrix, errors.New(fmt.Sprintf("means.Load: linenum %d has only %d elements", linenum, len(line)))
 		}
 
 		// for now assume 2 dimensions only
 		f0, err := Atof64(string(l[0]))
 		if err != nil {
-			return datamatrix, errors.New(fmt.Sprintf("means: cannot convert %s to float64.", l[0]))
+			return datamatrix, errors.New(fmt.Sprintf("means.Load: cannot convert f0 %s to float64.", l[0]))
 		}
 		f1, err := Atof64(string(l[1]))
+	//	fmt.Printf("f1=%s\n", l[1])
 		if err != nil {
-			return datamatrix, errors.New(fmt.Sprintf("means: cannot convert %s to float64.", l[linenum][1]))
+			return datamatrix, errors.New(fmt.Sprintf("means.Load: cannot convert f1 %s to float64.",l[1]))
 		}
 
 		if linenum >= len(data) {
@@ -80,7 +87,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		}
 	}
 	numcols := 2
-	datamatrix = matrix.MakeDenseMatrix(data, len(data)/numcols, numcols)
+	datamatrix = matrix.MakeDenseMatrix(data, linenum - 1, numcols)
 	return datamatrix, nil
 }
 
@@ -117,7 +124,7 @@ func RandCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 				if rf > maxj*3 {
 					rf = rf / maxj
 				} else {
-					rf = rf / 2
+					rf = rf / 3.14
 				}
 			}
 			rands[i] = rf
@@ -199,27 +206,31 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 }*/
 
 // kmeans takes a vector of data points and a number specifying the number of clusters.
-// Retruns two vectors:
-// centroids = [x, y] where each row represents a centroid and  x and y are the means of distances btwn centroid and points in that cluster
-// centroidSqDist = [row number in centroids matrix, squared error btwn centroid and point]
-//      This matrix has a 1:1 row correspondence with dataPoints.
-//
-// dataPoints = [x,y] coordinates of all data points.
+// dataPoints = matrix[x,y] coordinates of all data points.
 // k = number of centroids (i.e., clusters)
 // N.B We are using only R^2 vectors to get something working.
-func kmeans(dataPoints *matrix.DenseMatrix, k int) ( *matrix.DenseMatrix,  *matrix.DenseMatrix,  error) {
+//
+// Returns two matricies:
+// centroidMeans = [x, y] where each row represents a centroid and x and y are the means of distances btwn centroid and points in that cluster
+// centroidSqDist = [row number in centroids matrix, squared error btwn centroid and point]
+//      This matrix has a 1:1 row correspondence with dataPoints.
+func Kmeans(dataPoints *matrix.DenseMatrix, k int) ( *matrix.DenseMatrix,  *matrix.DenseMatrix,  error) {
 	numRows, numCols := dataPoints.GetSize()
 	centroidSqDist := matrix.Zeros(numRows, numCols)
 	// Intialize centroids with random values.  These will later be over written with
 	// the means for each centroid.
-	centroids := RandCentroids(dataPoints, k)
+	centroids := RandCentroids(dataPoints, k)  //commented out for deterministic testing
+	// Testing START
+	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
+	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
+	// Testing END
 	centroidMeans := matrix.Zeros(k, numCols)
 
 	clusterChanged := true
 	for ; clusterChanged ; {
 	    clusterChanged = false
 
-        for i := 0; i < numRows; {  // assign each data point to a centroid
+        for i := 0; i < numRows; i++ {  // assign each data point to a centroid
 			//TODO: put each iteration in a goroutine up to NCPU
 			point := dataPoints.GetRowVector(i)
 			centroidRowNum, distPointToCentroidSq ,err := AssignPointToCentroid(point, centroids)
@@ -230,21 +241,26 @@ func kmeans(dataPoints *matrix.DenseMatrix, k int) ( *matrix.DenseMatrix,  *matr
 				clusterChanged = true
 			}
 			// row num in centroidSqDist == row num in dataPoints
-            centroidSqDist.Set(i,0, float64(centroidRowNum)) 
+            centroidSqDist.Set(i, 0, float64(centroidRowNum)) 
 	        centroidSqDist.Set(i, 1, distPointToCentroidSq)  
         }
 
 		// Now that you have each data point grouped with a centroid, iterate through the 
 		// centroidSqDist martix and for each centroid retrieve the original ordered pair from dataPoints
 		// and place the results in pointsInCuster.  
-        for c := 0; c < k; k++ {
+        for c := 0; c < k; c++ {
 			// c is the index that identifies the current centroid.
 			// d is the index that identifies a row in centroidSqDist.
 			// Select all the rows in centroidSqDist whose first col value == c.
 			// Get the corresponding row vector from dataPoints and place it in pointsInCluster.
 			matches, err :=	matutil.FiltCol(float64(c), float64(c), 0, centroidSqDist)  //rows with c in column 0.
+			// It is possible that some centroids will not have any points, so there may not be any matches in 
+			// the first column of centroidSqDist.
 			if err != nil {
 					return centroidMeans, centroidSqDist, nil
+			}
+			if len(matches) == 0 {
+				continue
 			}
 			pointsInCluster := matrix.Zeros(len(matches), 2) //TODO Adapt for more than two columns
 			d := 0
@@ -258,11 +274,10 @@ func kmeans(dataPoints *matrix.DenseMatrix, k int) ( *matrix.DenseMatrix,  *matr
 			means := matutil.MeanCols(pointsInCluster)  // 1x2 matrix with the mean coordinates of the current centroid
 			// Centroids is a kX2 matrix where the row number corresponds to the same row in the centroid matrix
 			// and the two columns are the means of the coordinates for that centroid cluster.
-			centroidMeans.Set(c, 0, means.Get(c,0))
-			centroidMeans.Set(c, 1, means.Get(c,1))
+			centroidMeans.Set(c, 0, means.Get(0,0))
+			centroidMeans.Set(c, 1, means.Get(0,1))
 		}
 	}
-	// N.B. The sum of squared errors in the sum of col 1 in centroidSqDist.
 	return centroidMeans, centroidSqDist, nil
 }
 

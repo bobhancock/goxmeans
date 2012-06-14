@@ -134,3 +134,25 @@ func TestAssignPointToCentroidErr(t *testing.T) {
 		t.Errorf("AssginCentroid should returned error.  Passed datapoint matrix with %d rows.", 4)
 	}
 }
+
+func TestKmeans(t *testing.T) {
+	dataPoints, err := Load("./testSetSmall.txt")
+	if err != nil {
+		t.Errorf("Load returned: %v", err)
+		return
+	}
+	
+	centroidMeans, centroidSqDist, err := Kmeans(dataPoints, 4)
+	if err != nil {
+		t.Errorf("Kmeans returned: %v", err)
+		return
+	}
+
+	if 	a, b := centroidMeans.GetSize(); a == 0 || b == 0 {
+		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
+	}
+
+	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
+		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
+	}
+}
