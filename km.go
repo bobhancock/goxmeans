@@ -15,13 +15,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"runtime"
+//	"runtime"
+	"log"
 	"code.google.com/p/gomatrix/matrix"
 	"goxmeans/matutil"
 )
 
-var workers = runtime.NumCPU()
+//var workers = runtime.NumCPU()
+var workers = 1
 
+
+// minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
     for _, y := range ys {
         if y < x {
@@ -265,13 +269,12 @@ func AssignPointToCentroid(dataPoint, centroids *matrix.DenseMatrix) (float64, f
 
 //============== Parallel Version ========================================================================
 // Parallel version
-type CentroidPoint struct {
-	centroidRunNum float64
-	distPointToCentroidSq float64
-}
 
+func Kmeansp(dataPoints *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
+	fp, _ := os.Create("/var/tmp/km.log")
+	w := io.Writer(fp)
+	log.SetOutput(w)
 
-func Kmeansp(dataPoints *matrix.DenseMatrix, k int)  {
 	numRows, numCols := dataPoints.GetSize()
 	centroidSqDist := matrix.Zeros(numRows, numCols)
 	// Intialize centroids with random values.  These will later be over written with
@@ -286,35 +289,29 @@ func Kmeansp(dataPoints *matrix.DenseMatrix, k int)  {
 	clusterChanged := true
 	for ; clusterChanged ; {
 	    clusterChanged = false
-		jobs := make(chan PairPointToCentroidJob, workers)
-		results := make(chan PairPointToCentroidResult, minimum(1024, numRows))
+		jobs := make(chan PairPointCentroidJob, workers)
+		results := make(chan PairPointCentroidResult, minimum(1024, numRows))
 		done := make(chan struct{}, workers)
 		
-		go addPairPointToCentroidJobs(jobs, dataPoints, centroids, results)
+		go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+		log.Println("After go addPairPointCentroidJobs")
 		for i := 0; i < workers; i++ {
-			go doPairPointToCentroidJobs(done, jobs)
+			go doPairPointCentroidJobs(done, jobs)
 		}
-		go awaitPairPointToCentroidCompletion(done, results)
-		processPairPointToCentroiResults(centroidSqDist, results)
-	}
-	fmt.Printf("centroidMean=%v\n", centroidMeans)
-	return
-
-/*        for i := 0; i < numRows; i++ {  // assign each data point to a centroid
-			point := dataPoints.GetRowVector(i)
-			centroidRowNum, distPointToCentroidSq := AssignPointToCentroid(point, centroids)
-			if centroidSqDist.Get(i, 0) != float64(centroidRowNum) {
-				clusterChanged = true
-			}
-			// row num in centroidSqDist == row num in dataPoints
-            centroidSqDist.Set(i, 0, float64(centroidRowNum)) 
-	        centroidSqDist.Set(i, 1, distPointToCentroidSq)  
-        }
-*/
+		//log.Println("After go doPairPointCentroidJobs")
+		go awaitPairPointCentroidCompletion(done, results)
+		//log.Println("After go awaitPairPointCentroidCompletion")
+		//BUG clusterChanged never becomes false and the loop does not terminate
+		clusterChanged = processPairPointToCentroidResults(centroidSqDist, results)
+		log.Printf("clusterChanged=%b\n", clusterChanged)
+		clusterChanged = false
+/*
+		// This is probably not worthwhile parallelizing.  It is unlikely that you would have more
+		// than 100 clusters on a regular basis.
 		// Now that you have each data point grouped with a centroid, iterate through the 
 		// centroidSqDist martix and for each centroid retrieve the original ordered pair from dataPoints
 		// and place the results in pointsInCuster.  
-        /*for c := 0; c < k; c++ {
+        for c := 0; c < k; c++ {
 			// c is the index that identifies the current centroid.
 			// d is the index that identifies a row in centroidSqDist.
 			// Select all the rows in centroidSqDist whose first col value == c.
@@ -342,55 +339,69 @@ func Kmeansp(dataPoints *matrix.DenseMatrix, k int)  {
 			// and the two columns are the means of the coordinates for that centroid cluster.
 			centroidMeans.Set(c, 0, means.Get(0,0))
 			centroidMeans.Set(c, 1, means.Get(0,1))
-		}
+		}*/
 	}
-	return CentroidPoint(centroidMeans, centroidSqDist)*/
+	return centroidMeans, centroidSqDist, nil
 }
 
+type CentroidPoint struct {
+	centroidRunNum float64
+	distPointToCentroidSq float64
+}
 
-type PairPointToCentroidJob struct {
-	point, centroids *matrix.DenseMatrix
-	results chan<- PairPointToCentroidResult
+type PairPointCentroidJob struct {
+	point, centroids, centroidSqDist *matrix.DenseMatrix
+	results chan<- PairPointCentroidResult
 	rowNum int
 }
 
-type PairPointToCentroidResult struct {
+type PairPointCentroidResult struct {
 	centroidRowNum float64
 	distSquared float64
 	rowNum int
+	clusterChanged bool
 }
 
 
-func addPairPointToCentroidJobs(jobs chan<- PairPointToCentroidJob, dataPoints, centroids *matrix.DenseMatrix, results chan<- PairPointToCentroidResult) {
+// addPairPointCentroidJobs adds a job to the jobs channel.
+func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, 
+	dataPoints, centroids, centroidSqDist *matrix.DenseMatrix, results chan<- PairPointCentroidResult) {
 	numRows, _ := dataPoints.GetSize()
     for i := 0; i < numRows; i++ {  // assign each data point to a centroid
 		point := dataPoints.GetRowVector(i)
-		jobs <- PairPointToCentroidJob{point, centroids, results, i}
+		jobs <- PairPointCentroidJob{point, centroids, centroidSqDist, results, i}
 	}
 	close(jobs)
 }
 
-func doPairPointToCentroidJobs(done chan<- struct{}, jobs <-chan PairPointToCentroidJob) {
+// doPairPointCentroidJobs executes a jobj from the jobs channel.
+func doPairPointCentroidJobs(done chan<- struct{}, jobs <-chan PairPointCentroidJob) {
 	for job := range jobs {
-		job.PairPointToCentroid()
+		job.PairPointCentroid()
 	}
 	done <- struct{}{}
 }
 
-func awaitPairPointToCentroidCompletion(done <-chan struct{}, results chan PairPointToCentroidResult) {
+// awaitPairPointCentroidCompletion waits until all jobs are completed.
+func awaitPairPointCentroidCompletion(done <-chan struct{}, results chan PairPointCentroidResult) {
 	for i := 0; i < workers; i++ {
 		<-done
 	}
 	close(results)
 }
 
-func processPairPointToCentroiResults(centroidSqDist *matrix.DenseMatrix, results <-chan PairPointToCentroidResult) {
+// processPairPointToCentroiResults assigns the results to the centroidSqDist matrix.
+func processPairPointToCentroidResults(centroidSqDist *matrix.DenseMatrix, results <-chan PairPointCentroidResult) bool {
+	clusterChanged := false
 	for result := range results {
-            centroidSqDist.Set(result.rowNum, 0, result.centroidRowNum)
-	        centroidSqDist.Set(result.rowNum, 1, result.distSquared)  
-			fmt.Printf("%f, %f, %d\n", result.centroidRowNum, result.distSquared)  
+		// We need access to job.id and a way to report clusterChanged back to main loop
+		if result.clusterChanged == true {
+			clusterChanged = true
+		}
+	    centroidSqDist.Set(result.rowNum, 0, result.centroidRowNum)
+	    centroidSqDist.Set(result.rowNum, 1, result.distSquared)  
 	}
-	// How to tell if cluster changed?
+	return clusterChanged
 }
 	
 // AssignPointToCentroid checks a data point against all centroids and returns the best match.
@@ -400,7 +411,7 @@ func processPairPointToCentroiResults(centroidSqDist *matrix.DenseMatrix, result
 //    1. The row number in the centroid matrix.
 //    2. (distance between centroid and point)^2
 //    3. error
-func (job PairPointToCentroidJob) PairPointToCentroid() {
+func (job PairPointCentroidJob) PairPointCentroid() {
     distPointToCentroid := math.Inf(1)
     centroidRowNum := float64(-1)
 	distSq := float64(0)
@@ -413,6 +424,11 @@ func (job PairPointToCentroidJob) PairPointToCentroid() {
             centroidRowNum = float64(j)
 		} 
  		distSq = math.Pow(distPointToCentroid, 2)
-	}		
-	job.results <- PairPointToCentroidResult{centroidRowNum, distSq, job.rowNum}
+	}	
+	clusterChanged := false
+	if job.centroidSqDist.Get(job.rowNum, 0) != centroidRowNum {
+		clusterChanged = true
+	}
+	job.results <- PairPointCentroidResult{centroidRowNum, distSq, job.rowNum, clusterChanged}
+//	fmt.Printf("job.rowNum=%d\n",job.rowNum)
 }

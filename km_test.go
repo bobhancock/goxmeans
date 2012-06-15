@@ -136,7 +136,7 @@ func TestAssignPointToCentroidErr(t *testing.T) {
 }
 
 func TestKmeans(t *testing.T) {
-	dataPoints, err := Load("./testSetSmall.txt")
+	dataPoints, err := Load("./testSet.txt")
 	if err != nil {
 		t.Errorf("Load returned: %v", err)
 		return
@@ -156,3 +156,101 @@ func TestKmeans(t *testing.T) {
 		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
 	}
 }
+
+
+
+/*func TestKmeansp(t *testing.T) {
+	dataPoints, err := Load("./testSetSmall.txt")
+	if err != nil {
+		t.Errorf("Load returned: %v", err)
+		return
+	}
+	
+	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4)
+	if err != nil {
+		t.Errorf("Kmeans returned: %v", err)
+		return
+	}
+
+	if 	a, b := centroidMeans.GetSize(); a == 0 || b == 0 {
+		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
+	}
+
+	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
+		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
+	}
+}*/
+
+func TestAddPairPointToCentroidJob(t *testing.T) {
+	r := 4
+	c := 2
+	jobs := make(chan PairPointCentroidJob, r)
+	results := make(chan PairPointCentroidResult, minimum(1024, r))
+	dataPoints := matrix.Zeros(r, c)
+	centroidSqDist := matrix.Zeros(r, c)
+	centroids := matrix.Zeros(r, c)
+	
+	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+	i := 0
+	for ; i < r; i++ {
+        <-jobs 
+		//fmt.Printf("Drained %d\n", i)
+    }
+
+	if i  != r {
+		t.Errorf("addPairPointToCentroidJobs number of jobs=%d.  Should be %d", i, r)
+	}
+}
+	
+func TestDoPairPointCentroidJobs(t *testing.T) {
+	r := 4
+	c := 2
+	dataPoints := matrix.Zeros(r, c)
+	centroidSqDist := matrix.Zeros(r, c)
+	centroids := matrix.Zeros(r, c)
+
+	done := make(chan struct{}, r)
+	jobs := make(chan PairPointCentroidJob, r)
+	results := make(chan PairPointCentroidResult, minimum(1024, r))
+
+	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+
+	for i := 0; i < r; i++ {
+		go doPairPointCentroidJobs(done, jobs)
+	}
+
+	j := 0
+	for ; j < r; j++ {
+        <- done
+//		fmt.Printf("Drained %d\n", j)
+    }
+
+	if j  != r {
+		t.Errorf("doPairPointToCentroidJobs jobs processed=%d.  Should be %d", j, r)
+	}
+}
+
+/*func TestProcessPairPointToCentroidResults(t *testing.T) {
+	r := 4
+	c := 2
+	dataPoints := matrix.Zeros(r, c)
+	centroidSqDist := matrix.Zeros(r, c)
+	centroids := matrix.Zeros(r, c)
+
+	done := make(chan struct{}, r)
+	jobs := make(chan PairPointCentroidJob, r)
+	results := make(chan PairPointCentroidResult, minimum(1024, r))
+
+	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+
+	for i := 0; i < r; i++ {
+		go doPairPointCentroidJobs(done, jobs)
+	}
+	go awaitPairPointCentroidCompletion(done, results)
+
+    //TODO How to test if clusterChanged is correctly set?
+    clusterChanged = processPairPointToCentroidResults(centroidSqDist, results)
+
+}*/
+
+
