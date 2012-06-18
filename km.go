@@ -162,7 +162,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	vectorSum.Scale(1.0 / float64(rows))
 	return vectorSum, nil
 }
-
+/*
 // kmeans takes a vector of data points and a number specifying the number of clusters.
 // dataPoints = matrix[x,y] coordinates of all data points.
 // k = number of centroids (i.e., clusters)
@@ -268,10 +268,10 @@ func AssignPointToCentroid(dataPoint, centroids *matrix.DenseMatrix) (float64, f
 	  }
 	return centroidRowNum, distSq, nil
 }
-
+*/
 //============== Parallel Version ========================================================================
 // TOOD  Pseudocode explaining algorithm
-func Kmeansp(dataPoints *matrix.DenseMatrix, k int, measurer Measurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
+func Kmeansp(dataPoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
 	log.SetOutput(w)
@@ -291,7 +291,7 @@ func Kmeansp(dataPoints *matrix.DenseMatrix, k int, measurer Measurer) (*matrix.
 	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
 	done := make(chan struct{}, workers)
 	
-	go addPairPointCentroidJobs(jobs, dataPoints, centroidDistSq, centroids, results)
+	go addPairPointCentroidJobs(jobs, dataPoints, centroidDistSq, centroids, measurer, results)
 	for i := 0; i < workers; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
@@ -346,6 +346,7 @@ type PairPointCentroidJob struct {
 	point, centroids, centroidDistSq *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
 	rowNum int
+	measurer matutil.VectorMeasurer
 }
 
 type PairPointCentroidResult struct {
@@ -355,12 +356,12 @@ type PairPointCentroidResult struct {
 }
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
-func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, 
-	dataPoints, centroids, centroidDistSq *matrix.DenseMatrix, results chan<- PairPointCentroidResult) {
+func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, dataPoints, centroids,
+	centroidDistSq *matrix.DenseMatrix, measurer matutil.VectorMeasurer, results chan<- PairPointCentroidResult) {
 	numRows, _ := dataPoints.GetSize()
     for i := 0; i < numRows; i++ { 
 		point := dataPoints.GetRowVector(i)
-		jobs <- PairPointCentroidJob{point, centroids, centroidDistSq, results, i}
+		jobs <- PairPointCentroidJob{point, centroids, centroidDistSq, results, i, measurer}
 	}
 	close(jobs)
 }
@@ -399,8 +400,8 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 
 	// Find the centroid that is closest to this point.
     for j := 0; j < k; j++ { 
-		
-     	distJ := matutil.EuclidDist(job.centroids.GetRowVector(j), job.point)
+//     	distJ := matutil.EuclidDist(job.centroids.GetRowVector(j), job.point)
+     	distJ := job.measurer(job.centroids.GetRowVector(j), job.point)
         if distJ < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)

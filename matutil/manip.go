@@ -142,35 +142,34 @@ func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (map[int]float6
 	return matches, nil
  }
 
-// Measurer finds the distance b - a.
-type Measurer interface {
-	Measure(a, b *matrix.DenseMatrix) (dist float64)
+
+// Measurer finds the distance the points in the columns
+type VectorMeasurer interface {
+	Measure() (dist float64, err error)
 }
 
-func NewVectorMeasurer(m Measurer) Measurer {
-	return &VectorMeasurer(m, a, b, 0)
-}
-	
-type VectorMeasurer struct {
-	M Measurer // underlying measurer
+type VectorDistance struct {
+	//measurer VectorMeasurer // underlying measurer
+	a, b *matrix.DenseMatrix
 }
 
+type EuclidDistance VectorDistance
+
+func NewEuclidDistance(a, b *matrix.DenseMatrix) *EuclidDistance {
+	return &EuclidDistance{a,b}
+}
 // DistEclidean finds the Euclidean distance between a centroid
 // a point in the data set.  Arguments are 1x2 matrices.
 // All intermediary l-values except s are matricies. The functions that
 // operate on them can all take nXn matricies as arguments.
-func (ed *VectorMeasurer) Measure(centroid, point *matrix.DenseMatrix) (dist float64) {
-	diff := matrix.Difference(centroid, point)
-	//	fmt.Printf("diff=%v\n", diff)
+func (ed *EuclidDistance) Measure() (dist float64) {
+	diff := matrix.Difference(ed.a, ed.b)
 	//square the resulting matrix
 	sqr := Pow(diff, 2)
-	//	fmt.Printf("sqr=%v\n", sqr)
 	// sum of 1x2 matrix 
 	sum := SumRows(sqr)
-	//	fmt.Printf("sum=%v\n", sum)
 	// square root of sum
 	s := sum.Get(0, 0)
-	//	fmt.Printf("s=%f\n", s)
 	dist =  math.Sqrt(s)
 	return
 }
