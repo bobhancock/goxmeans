@@ -15,14 +15,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
-//	"runtime"
+	"runtime"
 	"log"
 	"code.google.com/p/gomatrix/matrix"
 	"goxmeans/matutil"
 )
 
-//var workers = runtime.NumCPU()
-var workers = 1
+var workers = runtime.NumCPU()
+//var workers = 1
 
 
 // minimum returns the smallest int.
@@ -77,7 +77,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		linenum++
 		l1 := strings.TrimRight(line, "\n")
 		l := strings.Split(l1, "\t")
-//		fmt.Printf("linenum=%d l=%v\n",linenum,l)
+
 		if len(l) < 2 {
 			return datamatrix, errors.New(fmt.Sprintf("means.Load: linenum %d has only %d elements", linenum, len(line)))
 		}
@@ -88,7 +88,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 			return datamatrix, errors.New(fmt.Sprintf("means.Load: cannot convert f0 %s to float64.", l[0]))
 		}
 		f1, err := Atof64(string(l[1]))
-	//	fmt.Printf("f1=%s\n", l[1])
+
 		if err != nil {
 			return datamatrix, errors.New(fmt.Sprintf("means.Load: cannot convert f1 %s to float64.",l[1]))
 		}
@@ -169,7 +169,8 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // N.B We are using only R^2 vectors to get something working.
 //
 // Returns two matricies:
-// centroidMeans = [x, y] where each row represents a centroid and x and y are the means of distances btwn centroid and points in that cluster
+// centroidMeans = [x, y] where each row represents a centroid and x and y are the
+// means of distances btwn centroid and points in that cluster
 // centroidSqDist = [row number in centroids matrix, squared error btwn centroid and point]
 //      This matrix has a 1:1 row correspondence with dataPoints.
 func Kmeans(dataPoints *matrix.DenseMatrix, k int) ( *matrix.DenseMatrix,  *matrix.DenseMatrix,  error) {
@@ -236,6 +237,7 @@ func Kmeans(dataPoints *matrix.DenseMatrix, k int) ( *matrix.DenseMatrix,  *matr
 			centroidMeans.Set(c, 1, means.Get(0,1))
 		}
 	}
+	//TODO Where to store the SSE which is the sum of col
 	return centroidMeans, centroidSqDist, nil
 }
 
@@ -268,15 +270,13 @@ func AssignPointToCentroid(dataPoint, centroids *matrix.DenseMatrix) (float64, f
 }
 
 //============== Parallel Version ========================================================================
-// Parallel version
-
-func Kmeansp(dataPoints *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
+// TOOD  Pseudocode explaining algorithm
+func Kmeansp(dataPoints *matrix.DenseMatrix, k int, measurer Measurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
 	log.SetOutput(w)
 
 	numRows, numCols := dataPoints.GetSize()
-	centroidSqDist := matrix.Zeros(numRows, numCols)
 	// Intialize centroids with random values.  These will later be over written with
 	// the means for each centroid.
 	centroids := RandCentroids(dataPoints, k)  
@@ -284,58 +284,58 @@ func Kmeansp(dataPoints *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, *matri
 	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
 	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
 	// TESTING END
+	centroidDistSq := matrix.Zeros(numRows, numCols)
 	centroidMeans := matrix.Zeros(k, numCols)
 
 	jobs := make(chan PairPointCentroidJob, workers)
 	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
 	done := make(chan struct{}, workers)
 	
-	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+	go addPairPointCentroidJobs(jobs, dataPoints, centroidDistSq, centroids, results)
 	for i := 0; i < workers; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
-	processPairPointToCentroidResults(centroidSqDist, results) // This blocks so that all the results can be processed
+	processPairPointToCentroidResults(centroidDistSq, results) // This blocks so that all the results can be processed
 
 	// Now that you have each data point grouped with a centroid, iterate through the 
-	// centroidSqDist martix and for each centroid retrieve the original ordered pair from dataPoints
+	// centroidDistSq martix and for each centroid retrieve the original ordered pair from dataPoints
 	// and place the results in pointsInCuster.  
     for c := 0; c < k; c++ {
 		// c is the index that identifies the current centroid.
-		// d is the index that identifies a row in centroidSqDist and dataPoints. The value of col 0 
-		//    in centroidSqDist is the number of the row in centroids.  
+		// d is the index that identifies a row in centroidDistSq and dataPoints. The value of col 0 
+		//    in centroidDistSq is the number of the row in centroids.  
 		//    The row number in this matrix corresponds to row in dataPoints that holds
         //    the original coordinates.
-		// Select all the rows in centroidSqDist whose first col value == c.
+		// Select all the rows in centroidDistSq whose first col value == c.
 		// Get the corresponding row vector from dataPoints and place it in pointsInCluster.
-		matches, err :=	matutil.FiltCol(float64(c), float64(c), 0, centroidSqDist)  //rows with c in column 0.
+		matches, err :=	matutil.FiltCol(float64(c), float64(c), 0, centroidDistSq)  //rows with c in column 0.
 		if err != nil {
-			return centroidMeans, centroidSqDist, nil
+			return centroidMeans, centroidDistSq, nil
 		}
 		// It is possible that some centroids will not have any points, so there may not be any matches in 
-		// the first column of centroidSqDist.
+		// the first column of centroidDistSq.
 		if len(matches) == 0 {
 			continue
 		}
 
 		pointsInCluster := matrix.Zeros(len(matches), 2) //TODO Adapt for more than two columns
-		d := 0
-		for rownum, _ := range matches {
-			pointsInCluster.Set(d, 0, dataPoints.Get(rownum, 0))
-			pointsInCluster.Set(d, 1, dataPoints.Get(rownum, 1))
-			d++
+		for d, rownum := range matches {
+			pointsInCluster.Set(d, 0, dataPoints.Get(int(rownum), 0))
+			pointsInCluster.Set(d, 1, dataPoints.Get(int(rownum), 1))
 		}
 
 		// pointsInCluster now contains all the data points for the current centroid.
 		// Take the mean of each of the 2 cols in pointsInCluster.
-		means := matutil.MeanCols(pointsInCluster)  // 1x2 matrix with the mean coordinates of the current centroid
-		// Centroids is a kX2 matrix where the row number corresponds to the same row in the centroid matrix
-		// and the two columns are the means of the coordinates for that centroid cluster.
+		means := matutil.MeanCols(pointsInCluster)
+		// centroidsMeans is a kX2 matrix where the row number corresponds to the same row in the centroid matrix
+		// and the two columns are the means of the coordinates for that cluster.
 		centroidMeans.Set(c, 0, means.Get(0,0))
 		centroidMeans.Set(c, 1, means.Get(0,1))
 	}
-	return centroidMeans, centroidSqDist, nil
+	return centroidMeans, centroidDistSq, nil
 }
+
 
 type CentroidPoint struct {
 	centroidRunNum float64
@@ -343,7 +343,7 @@ type CentroidPoint struct {
 }
 
 type PairPointCentroidJob struct {
-	point, centroids, centroidSqDist *matrix.DenseMatrix
+	point, centroids, centroidDistSq *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
 	rowNum int
 }
@@ -354,19 +354,18 @@ type PairPointCentroidResult struct {
 	rowNum int
 }
 
-
 // addPairPointCentroidJobs adds a job to the jobs channel.
 func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, 
-	dataPoints, centroids, centroidSqDist *matrix.DenseMatrix, results chan<- PairPointCentroidResult) {
+	dataPoints, centroids, centroidDistSq *matrix.DenseMatrix, results chan<- PairPointCentroidResult) {
 	numRows, _ := dataPoints.GetSize()
-    for i := 0; i < numRows; i++ {  // assign each data point to a centroid
+    for i := 0; i < numRows; i++ { 
 		point := dataPoints.GetRowVector(i)
-		jobs <- PairPointCentroidJob{point, centroids, centroidSqDist, results, i}
+		jobs <- PairPointCentroidJob{point, centroids, centroidDistSq, results, i}
 	}
 	close(jobs)
 }
 
-// doPairPointCentroidJobs executes a jobj from the jobs channel.
+// doPairPointCentroidJobs executes a job from the jobs channel.
 func doPairPointCentroidJobs(done chan<- struct{}, jobs <-chan PairPointCentroidJob) {
 	for job := range jobs {
 		job.PairPointCentroid()
@@ -382,21 +381,16 @@ func awaitPairPointCentroidCompletion(done <-chan struct{}, results chan PairPoi
 	close(results)
 }
 
-// processPairPointToCentroiResults assigns the results to the centroidSqDist matrix.
-func processPairPointToCentroidResults(centroidSqDist *matrix.DenseMatrix, results <-chan PairPointCentroidResult)  {
+// processPairPointToCentroidResults assigns the results to the centroidDistSq matrix.
+func processPairPointToCentroidResults(centroidDistSq *matrix.DenseMatrix, results <-chan PairPointCentroidResult)  {
 	for result := range results {
-	    centroidSqDist.Set(result.rowNum, 0, result.centroidRowNum)
-	    centroidSqDist.Set(result.rowNum, 1, result.distSquared)  
+	    centroidDistSq.Set(result.rowNum, 0, result.centroidRowNum)
+	    centroidDistSq.Set(result.rowNum, 1, result.distSquared)  
 	}
 }
 	
 // AssignPointToCentroid checks a data point against all centroids and returns the best match.
 // The centroid is identified by the row number in the centroid matrix.
-// dataPoint is a 1X2 vector representing one data point.
-// Return 
-//    1. The row number in the centroid matrix.
-//    2. (distance between centroid and point)^2
-//    3. error
 func (job PairPointCentroidJob) PairPointCentroid() {
     distPointToCentroid := math.Inf(1)
     centroidRowNum := float64(-1)
@@ -404,7 +398,8 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 	k, _ := job.centroids.GetSize()
 
 	// Find the centroid that is closest to this point.
-    for j := 0; j < k; j++ {  // check distance btwn point and each centroid
+    for j := 0; j < k; j++ { 
+		
      	distJ := matutil.EuclidDist(job.centroids.GetRowVector(j), job.point)
         if distJ < distPointToCentroid {
             distPointToCentroid = distJ
@@ -413,5 +408,4 @@ func (job PairPointCentroidJob) PairPointCentroid() {
  		distSq = math.Pow(distPointToCentroid, 2)
 	}	
 	job.results <- PairPointCentroidResult{centroidRowNum, distSq, job.rowNum}
-//	fmt.Printf("job.rowNum=%d\n",job.rowNum)
 }

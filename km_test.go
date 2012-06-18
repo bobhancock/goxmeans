@@ -230,7 +230,7 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	}
 }
 
-/*func TestProcessPairPointToCentroidResults(t *testing.T) {
+func TestProcessPairPointToCentroidResults(t *testing.T) {
 	r := 4
 	c := 2
 	dataPoints := matrix.Zeros(r, c)
@@ -248,9 +248,9 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	}
 	go awaitPairPointCentroidCompletion(done, results)
 
-    //TODO How to test if clusterChanged is correctly set?
-    clusterChanged = processPairPointToCentroidResults(centroidSqDist, results)
+    //TODO check deterministic results of centroidDistSq
+     processPairPointToCentroidResults(centroidSqDist, results)
 
-}*/
+}
 
 
