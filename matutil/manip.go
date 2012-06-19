@@ -145,31 +145,25 @@ func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (map[int]float6
 
 // Measurer finds the distance the points in the columns
 type VectorMeasurer interface {
-	Measure() (dist float64, err error)
+	CalcDist(a, b *matrix.DenseMatrix) (dist float64)
 }
 
-type VectorDistance struct {
-	//measurer VectorMeasurer // underlying measurer
-	a, b *matrix.DenseMatrix
-}
+type VectorDistance struct {}
 
 type EuclidDistance VectorDistance
 
-func NewEuclidDistance(a, b *matrix.DenseMatrix) *EuclidDistance {
-	return &EuclidDistance{a,b}
-}
 // DistEclidean finds the Euclidean distance between a centroid
 // a point in the data set.  Arguments are 1x2 matrices.
 // All intermediary l-values except s are matricies. The functions that
 // operate on them can all take nXn matricies as arguments.
-func (ed *EuclidDistance) Measure() (dist float64) {
-	diff := matrix.Difference(ed.a, ed.b)
+	func (ed *EuclidDistance) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64) {
+	diff := matrix.Difference(centroid, point)
 	//square the resulting matrix
 	sqr := Pow(diff, 2)
 	// sum of 1x2 matrix 
 	sum := SumRows(sqr)
 	// square root of sum
 	s := sum.Get(0, 0)
-	dist =  math.Sqrt(s)
+	dist = math.Sqrt(s)
 	return
 }
