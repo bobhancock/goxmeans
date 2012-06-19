@@ -21,5 +21,5 @@ Anthony Foglia
 Variable Names
 --------------
 Some of the variable names have turned out to be quite long.  We tried shortening some of them, but
-their purpose became too cryptic.  We would rather error on the side of clarity now and shorten
+their purpose became too cryptic.  We would rather err on the side of clarity now and shorten
 them later if we can decide upon equally descriptive names.
