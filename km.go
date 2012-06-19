@@ -401,8 +401,8 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 	// Find the centroid that is closest to this point.
     for j := 0; j < k; j++ { 
 //     	distJ := matutil.EuclidDist(job.centroids.GetRowVector(j), job.point)
-     	distJ := job.measurer(job.centroids.GetRowVector(j), job.point)
-        if distJ < distPointToCentroid {
+     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+        if distJ  < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
 		} 
