@@ -136,6 +136,18 @@ func TestEuclidDist(t *testing.T) {
 	}
 }
 
+func BenchmarkEuclidDist(b *testing.B) {
+	var ed EuclidDist 
+	rows := 1
+	columns := 2
+
+	centroid := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
+	point := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
+    for i := 0; i < b.N; i++ {
+		_, _ = ed.CalcDist(centroid, point)	
+    }
+}
+
 func TestManhattanDist(t *testing.T) {
 	var md ManhattanDist
 	rows := 1
