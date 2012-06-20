@@ -401,7 +401,9 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 	// Find the centroid that is closest to this point.
     for j := 0; j < k; j++ { 
 //     	distJ := matutil.EuclidDist(job.centroids.GetRowVector(j), job.point)
-     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+     	distJ, _ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+		// TODO We are ignoring the error value for the moment. How do we deal with
+		// an error here in the pipeline?
         if distJ  < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
