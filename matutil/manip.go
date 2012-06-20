@@ -150,13 +150,13 @@ type VectorMeasurer interface {
 
 type VectorDistance struct {}
 
-type EuclidDistance VectorDistance
+type EuclidDist VectorDistance
 
 // CalcDist finds the Euclidean distance between a centroid
 // a point in the data set.  Arguments are 1x2 matrices.
 // All intermediary l-values except s are matricies. The functions that
 // operate on them can all take nXn matricies as arguments.
-func (ed EuclidDistance) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64, err error) {
+func (ed EuclidDist) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64, err error) {
 	err = nil
 	diff := matrix.Difference(centroid, point)
 	//square the resulting matrix
@@ -169,9 +169,11 @@ func (ed EuclidDistance) CalcDist(centroid, point *matrix.DenseMatrix) (dist flo
 	return
 }
 
-type ManhattanDistance struct {}
+type ManhattanDist struct {}
 
-func (md ManhattanDistance) CalcDist(a, b *matrix.DenseMatrix) (dist float64, err error) {
+// ManhattanDistance calculates the sum of the aboslute differnce of the coordinates.
+// Also known as rectilinear distance, city block distance, or taxicab distance.
+func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) (dist float64, err error) {
 	dist = float64(0)
 	err = nil
 	arows, acols := a.GetSize()
@@ -182,7 +184,6 @@ func (md ManhattanDistance) CalcDist(a, b *matrix.DenseMatrix) (dist float64, er
 	} else if arows != brows {
 		return dist, errors.New(fmt.Sprintf("matutil: Matrices must have the same dimensions.  a=%dX%d b=%dX%d", arows, acols, brows, bcols))
 	}
-
 	dist = math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
 	return 
 }
