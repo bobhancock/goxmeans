@@ -100,25 +100,6 @@ func TestSumCols(t *testing.T) {
 	}
 }
 
-func TestEuclidDist(t *testing.T) {
-	rows := 1
-	columns := 2
-	centroid := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
-	point := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
-	calcEd := EuclidDist(centroid, point)
-
-	expectedEd := 5.632051 //expected value
-	epsilon := .000001
-
-	na := math.Nextafter(expectedEd, expectedEd + 1) 
-	diff := math.Abs(calcEd - na) 
-
-	if diff > epsilon {
-		t.Errorf("EuclidDistance: excpected %f but received %f.  The difference %f exceeds epsilon %f", expectedEd, calcEd, diff, epsilon)
-	}
-}
-
-
 func TestFiltCol(t *testing.T) {
 	mat := matrix.MakeDenseMatrix([]float64{2,1,4,2,6,3,8,4,10,5}, 5, 2)
 	matches, err := FiltCol(2.0, 4.0, 1, mat)
@@ -132,4 +113,45 @@ func TestFiltCol(t *testing.T) {
 	}
 }
 
+func TestEuclidDist(t *testing.T) {
+	var ed EuclidDist 
+	rows := 1
+	columns := 2
+
+	centroid := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
+	point := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
+	calcEd, err := ed.CalcDist(centroid, point)
+	if err != nil {
+		t.Errorf("EuclidDist: returned an error.  err=%v", err)
+	}
+
+	expectedEd := 5.632051 //expected value
+	epsilon := .000001
+
+	na := math.Nextafter(expectedEd, expectedEd + 1) 
+	diff := math.Abs(calcEd - na) 
+
+	if diff > epsilon {
+		t.Errorf("EuclidDist: excpected %f but received %f.  The difference %f exceeds epsilon %f", expectedEd, calcEd, diff, epsilon)
+	}
+}
+
+func TestManhattanDist(t *testing.T) {
+	var md ManhattanDist
+	rows := 1
+	columns := 2
+
+	a := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
+	b := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
+	
+	calcMd, err := md.CalcDist(a, b)
+	if err != nil {
+		t.Errorf("ManhattandDist: returned an error.  err=%v", err)
+	}
+	
+	// 1.6 + 5.4 = 7.0
+	if calcMd != float64(7.0) {
+		t.Errorf("ManhattanDist: should be 7.0, but returned %f", calcMd)
+	}
+}
 //TODO: test for MeanCols
