@@ -145,18 +145,19 @@ func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (map[int]float6
 
 // Measurer finds the distance the points in the columns
 type VectorMeasurer interface {
-	CalcDist(a, b *matrix.DenseMatrix) (dist float64)
+	CalcDist(a, b *matrix.DenseMatrix) (dist float64, err error)
 }
 
 type VectorDistance struct {}
 
 type EuclidDistance VectorDistance
 
-// DistEclidean finds the Euclidean distance between a centroid
+// CalcDist finds the Euclidean distance between a centroid
 // a point in the data set.  Arguments are 1x2 matrices.
 // All intermediary l-values except s are matricies. The functions that
 // operate on them can all take nXn matricies as arguments.
-	func (ed *EuclidDistance) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64) {
+func (ed EuclidDistance) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64, err error) {
+	err = nil
 	diff := matrix.Difference(centroid, point)
 	//square the resulting matrix
 	sqr := Pow(diff, 2)
@@ -166,4 +167,22 @@ type EuclidDistance VectorDistance
 	s := sum.Get(0, 0)
 	dist = math.Sqrt(s)
 	return
+}
+
+type ManhattanDistance struct {}
+
+func (md ManhattanDistance) CalcDist(a, b *matrix.DenseMatrix) (dist float64, err error) {
+	dist = float64(0)
+	err = nil
+	arows, acols := a.GetSize()
+	brows, bcols := b.GetSize()
+
+	if arows != 1 || brows != 1 {
+		return dist, errors.New(fmt.Sprintf("matutil: Matrices must contain only 1 row.  a has %d and b has %d.", arows, brows))
+	} else if arows != brows {
+		return dist, errors.New(fmt.Sprintf("matutil: Matrices must have the same dimensions.  a=%dX%d b=%dX%d", arows, acols, brows, bcols))
+	}
+
+	dist = math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
+	return 
 }
