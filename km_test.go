@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"goxmeans/matutil"
 )
 
 func TestAtof64Invalid(t *testing.T) {
@@ -114,28 +115,7 @@ func TestComputeCentroid(t *testing.T) {
 	}
 }
 
-func TestAssignPointToCentroid(t *testing.T) {
-	centroids := matrix.MakeDenseMatrix([]float64{1.0,1.0,100.0,100.0}, 2, 2)
-	datapoint := matrix.MakeDenseMatrix([]float64{2.0, 2.0}, 1, 2)
-	minIndex, _, err := AssignPointToCentroid(datapoint,centroids)
-	if err != nil {
-		t.Errorf("AssignCentroid returned: %v", err)
-	}
-	if minIndex != 0 {
-		t.Errorf("AssignCentroid returned minIndex=%f instead of MinIndex=0.", minIndex)
-	}
-}
-
-func TestAssignPointToCentroidErr(t *testing.T) {
-	centroids := matrix.MakeDenseMatrix([]float64{1.0,1.0,100.0,100.0}, 2, 2)
-	datapoint := matrix.Zeros(4,4)
-	_, _, err := AssignPointToCentroid(datapoint,centroids)
-	if err == nil {
-		t.Errorf("AssginCentroid should returned error.  Passed datapoint matrix with %d rows.", 4)
-	}
-}
-
-func TestKmeans(t *testing.T) {
+/*func TestKmeans(t *testing.T) {
 	dataPoints, err := Load("./testSet.txt")
 	if err != nil {
 		t.Errorf("Load returned: %v", err)
@@ -155,18 +135,20 @@ func TestKmeans(t *testing.T) {
 	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
 		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
 	}
-}
+}*/
 
 
 
-/*func TestKmeansp(t *testing.T) {
+func TestKmeansp(t *testing.T) {
 	dataPoints, err := Load("./testSetSmall.txt")
 	if err != nil {
 		t.Errorf("Load returned: %v", err)
 		return
 	}
 	
-	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4)
+	var ed matutil.EuclidDist
+
+	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
@@ -179,7 +161,7 @@ func TestKmeans(t *testing.T) {
 	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
 		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
 	}
-}*/
+}
 
 func TestAddPairPointToCentroidJob(t *testing.T) {
 	r := 4
@@ -189,8 +171,10 @@ func TestAddPairPointToCentroidJob(t *testing.T) {
 	dataPoints := matrix.Zeros(r, c)
 	centroidSqDist := matrix.Zeros(r, c)
 	centroids := matrix.Zeros(r, c)
+
+	var ed matutil.EuclidDist
 	
-	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+	go addPairPointCentroidJobs(jobs, dataPoints, centroids, centroidSqDist,ed ,results)
 	i := 0
 	for ; i < r; i++ {
         <-jobs 
@@ -213,7 +197,9 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
-	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+	var md matutil.ManhattanDist
+
+	go addPairPointCentroidJobs(jobs, dataPoints, centroids, centroidSqDist, md, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
@@ -241,7 +227,8 @@ func TestProcessPairPointToCentroidResults(t *testing.T) {
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
-	go addPairPointCentroidJobs(jobs, dataPoints, centroidSqDist, centroids, results)
+	var md matutil.ManhattanDist
+	go addPairPointCentroidJobs(jobs, dataPoints,  centroids, centroidSqDist, md, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
@@ -252,5 +239,3 @@ func TestProcessPairPointToCentroidResults(t *testing.T) {
      processPairPointToCentroidResults(centroidSqDist, results)
 
 }
-
-
