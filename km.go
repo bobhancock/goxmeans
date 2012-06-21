@@ -353,6 +353,7 @@ type PairPointCentroidResult struct {
 	centroidRowNum float64
 	distSquared float64
 	rowNum int
+	err error
 }
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
@@ -393,6 +394,7 @@ func processPairPointToCentroidResults(centroidDistSq *matrix.DenseMatrix, resul
 // AssignPointToCentroid checks a data point against all centroids and returns the best match.
 // The centroid is identified by the row number in the centroid matrix.
 func (job PairPointCentroidJob) PairPointCentroid() {
+	var err error = nil
     distPointToCentroid := math.Inf(1)
     centroidRowNum := float64(-1)
 	distSq := float64(0)
@@ -400,15 +402,15 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 
 	// Find the centroid that is closest to this point.
     for j := 0; j < k; j++ { 
-//     	distJ := matutil.EuclidDist(job.centroids.GetRowVector(j), job.point)
-     	distJ, _ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
-		// TODO We are ignoring the error value for the moment. How do we deal with
-		// an error here in the pipeline?
+     	distJ, err := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+		if err != nil {
+			continue
+		}
         if distJ  < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
 		} 
  		distSq = math.Pow(distPointToCentroid, 2)
 	}	
-	job.results <- PairPointCentroidResult{centroidRowNum, distSq, job.rowNum}
+	job.results <- PairPointCentroidResult{centroidRowNum, distSq, job.rowNum, err}
 }
