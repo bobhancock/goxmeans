@@ -271,7 +271,7 @@ func AssignPointToCentroid(dataPoint, centroids *matrix.DenseMatrix) (float64, f
 */
 //============== Parallel Version ========================================================================
 // TOOD  Pseudocode explaining algorithm
-func Kmeansp(dataPoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
+func Kmeansp(dataPoints, centroids *matrix.DenseMatrix, k int, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
 	log.SetOutput(w)
@@ -279,7 +279,7 @@ func Kmeansp(dataPoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasu
 	numRows, numCols := dataPoints.GetSize()
 	// Intialize centroids with random values.  These will later be over written with
 	// the means for each centroid.
-	centroids := RandCentroids(dataPoints, k)  
+//	centroids := RandCentroids(dataPoints, k)  
 	//TESTING START
 	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
 	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
