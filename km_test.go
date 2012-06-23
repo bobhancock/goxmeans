@@ -66,7 +66,7 @@ func TestValidReturnLoad(t *testing.T) {
 	record := fmt.Sprintf("123\t456\n789\t101")
 	_, err := createtestfile(fname, record)
 	if err != nil {
-		t.Errorf("Could not create test file %s err=%v", err)
+		t.Errorf("Could not create test file %s err=%v", fname, err)
 	}
 	defer os.Remove(fname)
 

@@ -277,13 +277,6 @@ func Kmeansp(dataPoints, centroids *matrix.DenseMatrix, k int, measurer matutil.
 	log.SetOutput(w)
 
 	numRows, numCols := dataPoints.GetSize()
-	// Intialize centroids with random values.  These will later be over written with
-	// the means for each centroid.
-//	centroids := RandCentroids(dataPoints, k)  
-	//TESTING START
-	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
-	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
-	// TESTING END
 	centroidDistSq := matrix.Zeros(numRows, numCols)
 	centroidMeans := matrix.Zeros(k, numCols)
 

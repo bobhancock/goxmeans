@@ -66,7 +66,7 @@ func TestSumRows(t *testing.T) {
 
 	numRows, numCols := sums.GetSize()
 	if numRows != 2 || numCols != 1 {
-		t.Errorf("SumRows returned a %dx%d matrix.  It should be 2x1.")
+		t.Errorf("SumRows returned a %dx%d matrix.  It should be 2x1.", numRows, numCols)
 	}
 	s00 := sums.Get(0, 0)
 	if s00 != (p00 + p01) {
@@ -88,7 +88,7 @@ func TestSumCols(t *testing.T) {
 
 	numRows, numCols := sums.GetSize()
 	if numRows != 1 || numCols != 2 {
-		t.Errorf("SumCols returned a %dx%d matrix.  It should be 1x2.")
+		t.Errorf("SumCols returned a %dx%d matrix.  It should be 1x2.", numRows, numCols)
 	}
 	s00 := sums.Get(0, 0)
 	if s00 != (p00 + p10) {
