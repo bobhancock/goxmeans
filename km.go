@@ -269,9 +269,38 @@ func AssignPointToCentroid(dataPoint, centroids *matrix.DenseMatrix) (float64, f
 	return centroidRowNum, distSq, nil
 }
 */
-//============== Parallel Version ========================================================================
-// TOOD  Pseudocode explaining algorithm
-func Kmeansp(dataPoints, centroids *matrix.DenseMatrix, k int, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
+/*============== Parallel Version ========================================================================*/
+// Kmeansp returns means and distance squared of the coordinates for each centroid.
+//
+// Input values are:
+// dataPoints - a kX2 matrix of R^2 coordinates 
+// centroids - a kX2 matrix of R^2 coordinates for centroids.
+// measurer - anythng that implements the matutil.VectorMeasurer interface.
+//
+// The return values are:
+// centroidMeans -- a kX2 matrix where the row number corresponds to the same 
+// row in the centroid matrix and the two columns are the means of the 
+// coordinates for that cluster.
+//
+// centroidDistSq - a kX2 matrix where the first column contains a number
+// indicating the centroid and the second column contains the sum of  squared 
+// errors for all points in this cluster.
+//
+// Example:
+// centroidsMeans:
+//  ____      ______
+//  | 12.29   32.94 | <-- The means of coords for centroid 0
+//  | 4.6     29.22 | <-- The means of coords for centroid 1
+//  |_____    ______|
+// 
+// centroidDistSq:
+// _____     _______
+// | 0        38.01 | <-- Centroid 0, SSE for the coordinates in row 0 of dataPoints.
+// | 1        23 .21| <-- Centroid 1, SSE for the coordinates in row 1 of dataPoints.
+// | 0        14.12 | <-- Centroid 0, SSE for the coordinates in row 2 of dataPoints.
+// _____     _______
+func Kmeansp(dataPoints, centroids *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, *matrix.DenseMatrix, error) {
+	k, _ := centroids.GetSize()
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
 	log.SetOutput(w)
@@ -291,50 +320,49 @@ func Kmeansp(dataPoints, centroids *matrix.DenseMatrix, k int, measurer matutil.
 	go awaitPairPointCentroidCompletion(done, results)
 	processPairPointToCentroidResults(centroidDistSq, results) // This blocks so that all the results can be processed
 
-	// Now that you have each data point grouped with a centroid, iterate through the 
-	// centroidDistSq martix and for each centroid retrieve the original ordered pair from dataPoints
-	// and place the results in pointsInCuster.  
+	// Now that you have each data point grouped with a centroid, iterate 
+	// through the  centroidDistSq martix and for each centroid retrieve the 
+	// original coordinates from dataPoints and place the results in
+	// pointsInCuster.
     for c := 0; c < k; c++ {
 		// c is the index that identifies the current centroid.
-		// d is the index that identifies a row in centroidDistSq and dataPoints. The value of col 0 
-		//    in centroidDistSq is the number of the row in centroids.  
-		//    The row number in this matrix corresponds to row in dataPoints that holds
-        //    the original coordinates.
+		// d is the index that identifies a row in centroidDistSq and dataPoints.
 		// Select all the rows in centroidDistSq whose first col value == c.
 		// Get the corresponding row vector from dataPoints and place it in pointsInCluster.
 		matches, err :=	matutil.FiltCol(float64(c), float64(c), 0, centroidDistSq)  //rows with c in column 0.
 		if err != nil {
 			return centroidMeans, centroidDistSq, nil
 		}
-		// It is possible that some centroids will not have any points, so there may not be any matches in 
-		// the first column of centroidDistSq.
+		// It is possible that some centroids will not have any points, so there 
+		//may not be any matches in the first column of centroidDistSq.
 		if len(matches) == 0 {
 			continue
 		}
 
-		pointsInCluster := matrix.Zeros(len(matches), 2) //TODO Adapt for more than two columns
+		pointsInCluster := matrix.Zeros(len(matches), 2) 
 		for d, rownum := range matches {
 			pointsInCluster.Set(d, 0, dataPoints.Get(int(rownum), 0))
 			pointsInCluster.Set(d, 1, dataPoints.Get(int(rownum), 1))
 		}
 
-		// pointsInCluster now contains all the data points for the current centroid.
-		// Take the mean of each of the 2 cols in pointsInCluster.
+		// pointsInCluster now contains all the data points for the current 
+		// centroid.  Take the mean of each of the 2 cols in pointsInCluster.
 		means := matutil.MeanCols(pointsInCluster)
-		// centroidsMeans is a kX2 matrix where the row number corresponds to the same row in the centroid matrix
-		// and the two columns are the means of the coordinates for that cluster.
 		centroidMeans.Set(c, 0, means.Get(0,0))
 		centroidMeans.Set(c, 1, means.Get(0,1))
 	}
 	return centroidMeans, centroidDistSq, nil
 }
 
-
+// CentroidPoint stores the row number in the centroids matrix and
+// the distance squared between the centroid as set of coordinates.
 type CentroidPoint struct {
 	centroidRunNum float64
 	distPointToCentroidSq float64
 }
 
+// PairPointCentroidJobs stores the elements that defines the job that pairs a 
+// set of coordinates (i.e., a data point) with a centroid.
 type PairPointCentroidJob struct {
 	point, centroids, centroidDistSq *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
@@ -342,12 +370,15 @@ type PairPointCentroidJob struct {
 	measurer matutil.VectorMeasurer
 }
 
+// PairPointCentroidResult stores the results of pairing a data point with a 
+// centroids.
 type PairPointCentroidResult struct {
 	centroidRowNum float64
 	distSquared float64
 	rowNum int
 	err error
 }
+
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
 func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, dataPoints, centroids,
