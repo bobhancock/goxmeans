@@ -1,8 +1,7 @@
 /* 
- Package matrixutils implements matrix manipulation utilities to augment
+ Package matutils implements matrix manipulation utilities to augment
  code.google.com/p/gomatrix/matrix.
 */
-
 package matutil
 
 import (
@@ -104,7 +103,7 @@ func MeanCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	return means
 }
 
-// SumCols takes the sum of each column in the matrix and returns a mx1 matrix of
+// SumCols takes the sum of each column in the matrix and returns a mX1 matrix of
 // the sums.
 func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	numRows, numCols := mat.GetSize()
@@ -121,12 +120,15 @@ func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	return sums
 }
 
-// FiltCol find values that match min <= A <= max for specified column.
-// Return
-//   map[int]float64 - key is the row number in mat, and the value is the value in the column specified by col.
-func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (map[int]float64, error) {
+// FiltCol find values that matches min <= A <= max for a specific column.
+//
+// Return Value
+//
+// matches - a map[int]float64 where the key is the row number in mat, 
+// and the value is the value in the column specified by col.
+func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (matches map[int]float64, err error) {
 	r,c := mat.GetSize()
-	matches := make(map[int]float64)
+	matches = make(map[int]float64)
 	
 	if col < 0 || col > c - 1 {
 		return matches, errors.New(fmt.Sprintf("matutil: Expected col vaule in range 0 to %d.  Received %d\n", c -1, col))
@@ -134,16 +136,15 @@ func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (map[int]float6
 
 	for i := 0; i < r; i++ {
 		v := mat.Get(i, col)
-//		fmt.Printf("i=%d v=%v\n",i, v)
 		if v >= min &&  v <= max {
 			matches[i] = v
 		}
 	}
-	return matches, nil
+	return 
  }
 
 
-// Measurer finds the distance the points in the columns
+// Measurer finds the distance between the points in the columns
 type VectorMeasurer interface {
 	CalcDist(a, b *matrix.DenseMatrix) (dist float64, err error)
 }
@@ -171,8 +172,9 @@ func (ed EuclidDist) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64
 
 type ManhattanDist struct {}
 
-// ManhattanDistance calculates the sum of the aboslute differnce of the coordinates.
-// Also known as rectilinear distance, city block distance, or taxicab distance.
+// CalcDist finds the ManhattanDistance which is the sum of the aboslute 
+// difference of the coordinates.   Also known as rectilinear distance, 
+// city block distance, or taxicab distance.
 func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) (dist float64, err error) {
 	dist = float64(0)
 	err = nil
