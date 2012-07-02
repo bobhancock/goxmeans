@@ -21,8 +21,8 @@ import (
 	"goxmeans/matutil"
 )
 
-var workers = runtime.NumCPU()
-//var workers = 1
+var numworkers = runtime.NumCPU()
+//var numworkers = 1
 
 
 // minimum returns the smallest int.
@@ -178,7 +178,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //
 // Return values
 //
-// centroidMeans - a kX2 matrix where the row number corresponds to the same 
+// centroidMean - a kX2 matrix where the row number corresponds to the same 
 // row in the centroid matrix and the two columns are the means of the 
 // coordinates for that cluster.
 //
@@ -189,16 +189,16 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // 
 //
 // centroidSE - a kX2 matrix where the first column contains a number
-// indicating the centroid and the second column contains the sum of  squared 
-// errors for all points in this cluster.
+// indicating the centroid and the second column contains the minimum
+// distance between centroid and point squared.  (i.e., the squared error)
 //
 //  ____      _______
 //  | 0        38.01 | <-- Centroid 0, squared error for the coordinates in row 0 of datapoints
 //  | 1        23 .21| <-- Centroid 1, squared error for the coordinates in row 1 of datapoints
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
-func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (centroidMeans *matrix.DenseMatrix,
-    centroidSE *matrix.DenseMatrix,err error) {
+func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (centroidMean, 
+    centroidSE *matrix.DenseMatrix, err error) {
 	k, _ := centroids.GetSize()
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
@@ -206,14 +206,14 @@ func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorM
 
 	numRows, numCols := datapoints.GetSize()
 	centroidSE = matrix.Zeros(numRows, numCols)
-	centroidMeans = matrix.Zeros(k, numCols)
+	centroidMean = matrix.Zeros(k, numCols)
 
-	jobs := make(chan PairPointCentroidJob, workers)
+	jobs := make(chan PairPointCentroidJob, numworkers)
 	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
-	done := make(chan struct{}, workers)
+	done := make(chan int, numworkers)
 	
 	go addPairPointCentroidJobs(jobs, datapoints, centroidSE, centroids, measurer, results)
-	for i := 0; i < workers; i++ {
+	for i := 0; i < numworkers; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
@@ -230,7 +230,7 @@ func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorM
 		// Get the corresponding row vector from datapoints and place it in pointsInCluster.
 		matches, err :=	matutil.FiltCol(float64(c), float64(c), 0, centroidSE)  //rows with c in column 0.
 		if err != nil {
-			return centroidMeans, centroidSE, nil
+			return centroidMean, centroidSE, nil
 		}
 		// It is possible that some centroids will not have any points, so there 
 		//may not be any matches in the first column of centroidSE.
@@ -247,8 +247,8 @@ func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorM
 		// pointsInCluster now contains all the data points for the current 
 		// centroid.  Take the mean of each of the 2 cols in pointsInCluster.
 		means := matutil.MeanCols(pointsInCluster)
-		centroidMeans.Set(c, 0, means.Get(0,0))
-		centroidMeans.Set(c, 1, means.Get(0,1))
+		centroidMean.Set(c, 0, means.Get(0,0))
+		centroidMean.Set(c, 1, means.Get(0,1))
 	}
 	return 
 }
@@ -291,16 +291,16 @@ func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, cent
 }
 
 // doPairPointCentroidJobs executes a job from the jobs channel.
-func doPairPointCentroidJobs(done chan<- struct{}, jobs <-chan PairPointCentroidJob) {
+func doPairPointCentroidJobs(done chan<- int, jobs <-chan PairPointCentroidJob) {
 	for job := range jobs {
 		job.PairPointCentroid()
 	}
-	done <- struct{}{}
+	done <- 1
 }
 
 // awaitPairPointCentroidCompletion waits until all jobs are completed.
-func awaitPairPointCentroidCompletion(done <-chan struct{}, results chan PairPointCentroidResult) {
-	for i := 0; i < workers; i++ {
+func awaitPairPointCentroidCompletion(done <-chan int, results chan PairPointCentroidResult) {
+	for i := 0; i < numworkers; i++ {
 		<-done
 	}
 	close(results)
@@ -336,4 +336,44 @@ func (job PairPointCentroidJob) PairPointCentroid() {
  		squaredErr = math.Pow(distPointToCentroid, 2)
 	}	
 	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
+}
+
+// In progress.
+func Kmeansbi(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (centroidMean *matrix.DenseMatrix,
+    centroidSE *matrix.DenseMatrix,err error) {
+	k, _ := centroids.GetSize()
+	numRows, numCols := datapoints.GetSize()
+
+	centroidSE = matrix.Zeros(numRows, numCols)
+	centroidMean = matrix.Zeros(k, numCols)
+
+	centroid0 := matutil.MeanCols(datapoints)
+	centlist := []*matrix.DenseMatrix{centroid0}
+	// for each data point calc initial Error
+	for j := 0; j < numRows; j++ {
+		point := datapoints.GetRowVector(j)
+     	distJ, err := job.measurer.CalcDist(centroid0, point)
+		if err != nil {
+			return centroidMean, centroidSE, errors.New("Kmeansbi: CalcDist returned err=%v", err)
+		}
+		centroidSE.Set(j,1, math.Pow(distJ, 2))
+	}
+
+	for ; len(centlist) < k ;  {
+		lowestSSE := math.Inf(1)
+		for i, _ := range centlist {
+			// Get the points in this cluster
+			pointsCurCluster, err :=	matutil.FiltCol(float64(i), float64(i), 0, centroidSE)  
+			if err != nil {
+				return centroidMean, centroidSE, nil
+			}
+			// It is possible that some centroids will not have any points, so there 
+			//may not be any matches in the first column of centroidSE.
+			if len(matches) == 0 {
+				continue
+			}
+			//TODO Should we specificy number of centroids or pass the matix of determined centroids.
+			Kmeans(pointsCurCluster, 
+		}
+	}
 }
