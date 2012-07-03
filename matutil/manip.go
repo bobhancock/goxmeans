@@ -124,9 +124,40 @@ func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 //
 // Return Value
 //
+// matches - a *matrix.DenseMatrix of the rows that match.
+func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (matches *matrix.DenseMatrix, err error) {
+	r,c := mat.GetSize()
+	buf := make(map[int]float64)
+	
+	if col < 0 || col > c - 1 {
+		matches = matrix.Zeros(1,1)
+		return matches, errors.New(fmt.Sprintf("matutil: Expected col vaule in range 0 to %d.  Received %d\n", c -1, col))
+	}
+
+	for i := 0; i < r; i++ {
+		v := mat.Get(i, col)
+		if v >= min &&  v <= max {
+			buf[i] = v
+		}
+	}
+	matches = matrix.Zeros(len(buf), 2)
+	m := 0
+	for j, val := range buf {
+		matches.Set(m,0,float64(j))
+		matches.Set(m,1,val)
+		m++
+	}
+	return 
+ }
+
+
+// FiltColMap find values that matches min <= A <= max for a specific column.
+//
+// Return Value
+//
 // matches - a map[int]float64 where the key is the row number in mat, 
 // and the value is the value in the column specified by col.
-func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (matches map[int]float64, err error) {
+func FiltColMap(min, max float64, col int, mat *matrix.DenseMatrix) (matches map[int]float64, err error) {
 	r,c := mat.GetSize()
 	matches = make(map[int]float64)
 	
@@ -188,4 +219,11 @@ func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) (dist float64, err er
 	}
 	dist = math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
 	return 
+}
+
+func SetRowVector(vector, target *matrix.DenseMatrix, row int) {
+	c0 := vector.Get(0,0)
+	c1 := vector.Get(0,1)
+	target.Set(row, 0, c0)
+	target.Set(row, 1, c1)
 }
