@@ -129,7 +129,23 @@ func TestFiltCol(t *testing.T) {
 	}
 }
 
-//func TestFiltColMap
+func TestFiltColMap(t *testing.T) {
+	mat := matrix.MakeDenseMatrix([]float64{2, 1, 4, 2, 6, 3,8, 4, 10, 5, 1, 1}, 5, 2)
+	matches, err := FiltColMap(mat, 2.0, 4.0, 1)
+	if err != nil {
+		t.Errorf("FiltColMap returned error: %v", err)
+		return
+	}
+
+	if len(matches) != 3 {
+		t.Errorf("FiltColMap expecte a map of len 3, but got len %d", len(matches))
+	}
+
+	if matches[1] != 2 || matches[2] != 3 || matches[3] != 4 {
+		t.Errorf("FiltColMap expected a map with vals 2, 3, 4 but got %v", matches)
+	}
+}
+
 
 func TestEuclidDist(t *testing.T) {
 	var ed EuclidDist 
