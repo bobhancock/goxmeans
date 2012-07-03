@@ -101,17 +101,35 @@ func TestSumCols(t *testing.T) {
 }
 
 func TestFiltCol(t *testing.T) {
-	mat := matrix.MakeDenseMatrix([]float64{2,1,4,2,6,3,8,4,10,5}, 5, 2)
-	matches, err := FiltCol(2.0, 4.0, 1, mat)
+	mat := matrix.MakeDenseMatrix([]float64{2, 1, 4, 2, 6, 3,8, 4, 10, 5, 1, 1}, 5, 2)
+	matches, err := FiltCol(mat, 2.0, 4.0, 1)
 	if err != nil {
 		t.Errorf("FiltCol returned error: %v", err)
 		return
 	}
-		
-	if len(matches) != 3 || matches[1] != 2 || matches[2] != 3 || matches[3] != 4 {
-		t.Errorf("FiltCol: expected matches[1]=2, matches[2]=3, matches[3]=4, but received %v", matches)
+	
+	r, _ := matches.GetSize()
+	if r != 3 {
+		t.Errorf("FiltCol: expected 3 rows and got %d", r)
+	}
+
+	m0 := matches.Get(0,1)
+	if m0 != 2 {
+		t.Errorf("FiltCol: expected row 0 col 1 to be 2, but got %f",m0)
+	}
+
+	m1 := matches.Get(1, 1)
+	if m1 != 3 {
+		t.Errorf("FiltCol: expected row 1 col 1 to be 3, but got %f",m1)
+	}
+
+	m2 := matches.Get(2, 1)
+	if m2 != 4 {
+		t.Errorf("FiltCol: expected row 1 col 1 to be 3, but got %f",m2)
 	}
 }
+
+//func TestFiltColMap
 
 func TestEuclidDist(t *testing.T) {
 	var ed EuclidDist 
