@@ -231,7 +231,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasu
 		// d is the index that identifies a row in centroidSqErr and datapoints.
 		// Select all the rows in centroidSqErr whose first col value == c.
 		// Get the corresponding row vector from datapoints and place it in pointsInCluster.
-		matches, err :=	matutil.FiltColMap(float64(c), float64(c), 0, centroidSqErr)  //rows with c in column 0.
+		matches, err :=	matutil.FiltColMap(centroidSqErr, float64(c), float64(c), 0)  //rows with c in column 0.
 		if err != nil {
 			return centroidMean, centroidSqErr, nil
 		}
@@ -370,12 +370,12 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeas
 		// Try splitting every cluster
 		for i, _ := range centroidlist {
 			// Get the points in this cluster
-			pointsCurCluster, err := matutil.FiltCol(float64(i), float64(i), 0, clusterAssignment)  
+			pointsCurCluster, err := matutil.FiltCol(clusterAssignment, float64(i), float64(i), 0)  
 			if err != nil {
 				return matCentroidlist, clusterAssignment, nil
 			}
 
-			centroidMat, splitClusterAss, err := Kmeansp(pointsCurCluster, 2, measurer)
+			centroidMat, splitClusterAssignment, err := Kmeansp(pointsCurCluster, 2, measurer)
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
@@ -392,8 +392,8 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeas
             // Calculate the sum of squared errorsfor each centroid. 
             // This is the sum for both centroids.  This give a statistcal measurement of how good
             // the clustering is for this cluster.
-			sseSplit := matutil.SumCol(splitClusterAss, 1)
-			matches, err := matutil.FiltCol(float64(i+1), math.Inf(1), 0, clusterAssignment)
+			sseSplit := matutil.SumCol(splitClusterAssignment, 1)
+			matches, err := matutil.FiltCol(clusterAssignment, float64(i+1), math.Inf(1), 0)
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
@@ -401,8 +401,8 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeas
 
 			if sseSplit + sseNotSplit < lowestSSE {
 				bestCentroidToSplit = 1
-				bestNewCentroids = centroidMat //copy?
-				bestClusterAssignment =  splitClusterAss//copy?
+				bestNewCentroids = matrix.MakeDenseCopy(centroidMat)
+				bestClusterAssignment =  matrix.MakeDenseCopy(splitClusterAssignment)
 			}
 		}
 	}
@@ -411,7 +411,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeas
 	// cluster you have decided to split.  Kmeansp() returned two clusters
 	// labeled 0 and 1. Change these cluster numbers to the cluster number
 	// you are splitting and the next cluster to be added.
-	m, err := matutil.FiltColMap(1, 1, 0, bestClusterAssignment)
+	m, err := matutil.FiltColMap(bestClusterAssignment, 1, 1, 0)
 	if err != nil {
 		return matCentroidlist, clusterAssignment, err
 	}
@@ -419,7 +419,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeas
 		bestClusterAssignment.Set(i, 0, float64(len(centroidlist)))
 	}	
 
-	n, err := matutil.FiltColMap(0, 0, 0, bestClusterAssignment)
+	n, err := matutil.FiltColMap(bestClusterAssignment, 0, 0, 0)
 	if err != nil {
 		return matCentroidlist, clusterAssignment, err
 	}

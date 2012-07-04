@@ -115,29 +115,6 @@ func TestComputeCentroid(t *testing.T) {
 	}
 }
 
-/*func TestKmeans(t *testing.T) {
-	dataPoints, err := Load("./testSet.txt")
-	if err != nil {
-		t.Errorf("Load returned: %v", err)
-		return
-	}
-	
-	centroidMeans, centroidSqDist, err := Kmeans(dataPoints, 4)
-	if err != nil {
-		t.Errorf("Kmeans returned: %v", err)
-		return
-	}
-
-	if 	a, b := centroidMeans.GetSize(); a == 0 || b == 0 {
-		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
-	}
-
-	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
-		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
-	}
-}*/
-
-
 
 func TestKmeansp(t *testing.T) {
 	dataPoints, err := Load("./testSetSmall.txt")
@@ -164,7 +141,7 @@ func TestKmeansp(t *testing.T) {
 		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
 	}
 }
-
+   
 func TestAddPairPointToCentroidJob(t *testing.T) {
 	r := 4
 	c := 2
@@ -240,3 +217,29 @@ func TestProcessPairPointToCentroidResults(t *testing.T) {
      processPairPointToCentroidResults(centroidSqDist, results)
 
 }
+
+
+func TestKmeansbi(t *testing.T) {
+	dataPoints, err := Load("./testSetSmall.txt")
+	if err != nil {
+		t.Errorf("Load returned: %v", err)
+		return
+	}
+	
+	var ed matutil.EuclidDist
+
+	matCentroidlist, clusterAssignment, err := Kmeansp(dataPoints, 4, ed)
+	if err != nil {
+		t.Errorf("Kmeans returned: %v", err)
+		return
+	}
+
+	if 	a, b := matCentroidlist.GetSize(); a == 0 || b == 0 {
+		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
+	}
+
+	if c, d := clusterAssignment.GetSize(); c == 0 || d == 0 {
+		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
+	}
+}
+   
