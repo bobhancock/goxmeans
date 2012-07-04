@@ -147,10 +147,10 @@ func TestKmeansp(t *testing.T) {
 	}
 	
 	var ed matutil.EuclidDist
-	centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
-	centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
+	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
+	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
 
-	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, centroids, 4, ed)
+	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
@@ -195,7 +195,7 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	centroidSqDist := matrix.Zeros(r, c)
 	centroids := matrix.Zeros(r, c)
 
-	done := make(chan struct{}, r)
+	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
@@ -224,7 +224,7 @@ func TestProcessPairPointToCentroidResults(t *testing.T) {
 	centroidSqDist := matrix.Zeros(r, c)
 	centroids := matrix.Zeros(r, c)
 
-	done := make(chan struct{}, r)
+	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
