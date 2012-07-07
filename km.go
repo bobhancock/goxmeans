@@ -41,6 +41,12 @@ func Atof64(s string) (f float64, err error) {
 	return float64(f64), err
 }
 
+type CentroidChooser interface {
+	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
+}
+
+type RandCentroids struct {}
+
 // Load loads a tab delimited text file of floats into a slice.
 // Assume last column is the target.
 // For now, we limit ourselves to two columns
@@ -107,9 +113,9 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 	return datamatrix, nil
 }
 
-// RandCentroids picks random centroids based on the min and max values in the matrix
+// chooseCentroids picks random centroids based on the min and max values in the matrix
 // and return a k by cols matrix of the centroids.
-func RandCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
 
@@ -199,14 +205,14 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
 //func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (centroidMean, 
-func Kmeansp(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasurer) (centroidMean, 
+func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer matutil.VectorMeasurer) (centroidMean, 
     centroidSqErr *matrix.DenseMatrix, err error) {
 	//k, _ := centroids.GetSize()
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
 	log.SetOutput(w)
 
-	centroids := RandCentroids(datapoints, k)
+	centroids := cc.ChooseCentroids(datapoints, k)
 	numRows, numCols := datapoints.GetSize()
 	centroidSqErr = matrix.Zeros(numRows, numCols)
 	centroidMean = matrix.Zeros(k, numCols)
@@ -236,7 +242,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasu
 			return centroidMean, centroidSqErr, nil
 		}
 		// It is possible that some centroids will not have any points, so there 
-		//may not be any matches in the first column of centroidSqErr.
+		// may not be any matches in the first column of centroidSqErr.
 		if len(matches) == 0 {
 			continue
 		}
@@ -257,7 +263,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasu
 }
 
 // CentroidPoint stores the row number in the centroids matrix and
-// the distance squared between the centroid as set of coordinates.
+// the distance squared between the centroid.
 type CentroidPoint struct {
 	centroidRunNum float64
 	distPointToCentroidSq float64
@@ -341,11 +347,18 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
 }
 
-// Kemansbi bisects a given cluster and determines which centroids give the lowest error.
+// Kmeansbi bisects a given cluster and determines which centroids give the lowest error.
 // Take the points in a cluster
 // While the number of cluster < k
+//    for every cluster
+//        measure total error
+//        cal kmeansp with k=2 on a given cluster
+//        measure total error after kmeansp split
+//    choose the cluster split with the lowest SSE
+//    commit the chosen split
 //
-func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeasurer) (matCentroidlist, clusterAssignment *matrix.DenseMatrix, err error) {
+// N.B. We are using SSE until the BCI is completed.
+func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (matCentroidlist, clusterAssignment *matrix.DenseMatrix, err error) {
 	numRows, numCols := datapoints.GetSize()
 	clusterAssignment = matrix.Zeros(numRows, numCols)
 	matCentroidlist = matrix.Zeros(k, numCols)
@@ -365,93 +378,95 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, measurer matutil.VectorMeas
 	var bestClusterAssignment, bestNewCentroids *matrix.DenseMatrix
 	var bestCentroidToSplit int
 
-	for ; len(centroidlist) < k ;  {
+	// Find the best centroid configuration.
+	for ; len(centroidlist) < k; {
 		lowestSSE := math.Inf(1)
-		// Try splitting every cluster
+		// Split cluster
 		for i, _ := range centroidlist {
 			// Get the points in this cluster
 			pointsCurCluster, err := matutil.FiltCol(clusterAssignment, float64(i), float64(i), 0)  
 			if err != nil {
-				return matCentroidlist, clusterAssignment, nil
+				return matCentroidlist, clusterAssignment, err
 			}
 
-			centroidMat, splitClusterAssignment, err := Kmeansp(pointsCurCluster, 2, measurer)
+			centroids, splitClusterAssignment, err := Kmeansp(pointsCurCluster, 2, cc, measurer)
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
 
-            /* centroidMat is a 2X2 matrix of the best centroids found by kmeans
+            /* centroids is a 2X2 matrix of the best centroids found by kmeans
             
-             splitClustAss is and mX2 matrix where col0 is either 0 or 1 and refers to the rows in centroidMat
-             and col1 cotains the squared error between a centroid and a point.  The rows here correspond to 
+             splitClustAssignment is a mX2 matrix where col0 is either 0 or 1 and refers to the rows in centroids
+             where col1 cotains the squared error between a centroid and a point.  The rows here correspond to 
              the rows in ptsInCurrCluster.  For example, if row 2 contains [1, 7.999] this means that centroid 1
-             has been paired with the point in row 2 of splitClustAss and that the squared error (distance 
+             has been paired with the point in row 2 of splitClustAssignment and that the squared error (distance 
              between centroid and point) is 7.999.
             */
 
-            // Calculate the sum of squared errorsfor each centroid. 
-            // This is the sum for both centroids.  This give a statistcal measurement of how good
+            // Calculate the sum of squared errors for each centroid. 
+            // This give a statistcal measurement of how good
             // the clustering is for this cluster.
 			sseSplit := matutil.SumCol(splitClusterAssignment, 1)
-			matches, err := matutil.FiltCol(clusterAssignment, float64(i+1), math.Inf(1), 0)
+			// Calculate the SSE for the original cluster
+			sqerr, err := matutil.FiltCol(clusterAssignment, float64(0), math.Inf(1), 0)
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
-			sseNotSplit := matutil.SumCol(matches, 1)
+			sseNotSplit := matutil.SumCol(sqerr, 1)
 
+			// TODO: Pre-BCI is this the best way to evaluate?
 			if sseSplit + sseNotSplit < lowestSSE {
 				bestCentroidToSplit = 1
-				bestNewCentroids = matrix.MakeDenseCopy(centroidMat)
+				bestNewCentroids = matrix.MakeDenseCopy(centroids)
 				bestClusterAssignment =  matrix.MakeDenseCopy(splitClusterAssignment)
 			}
 		}
-	}
 
-	// Applying the split overwrites the existing cluster assginments for the 
-	// cluster you have decided to split.  Kmeansp() returned two clusters
-	// labeled 0 and 1. Change these cluster numbers to the cluster number
-	// you are splitting and the next cluster to be added.
-	m, err := matutil.FiltColMap(bestClusterAssignment, 1, 1, 0)
-	if err != nil {
-		return matCentroidlist, clusterAssignment, err
-	}
-	for i,_ := range m {
-		bestClusterAssignment.Set(i, 0, float64(len(centroidlist)))
-	}	
-
-	n, err := matutil.FiltColMap(bestClusterAssignment, 0, 0, 0)
-	if err != nil {
-		return matCentroidlist, clusterAssignment, err
-	}
-	for i, _ := range n {
-		bestClusterAssignment.Set(i , 1, float64(bestCentroidToSplit))
-	}	
-
-	fmt.Printf("Best centroid to split %f\n", bestCentroidToSplit)
-	r,_ := bestClusterAssignment.GetSize()
-	fmt.Printf("The length of best cluster assesment is %f\n", r)
-
-	// Replace a centroid with the two best centroids from the split.
-	centroidlist[bestCentroidToSplit] = bestNewCentroids.GetRowVector(0)
-	centroidlist = append(centroidlist, bestNewCentroids.GetRowVector(1))
-
-	// Reassign new clusters and SSE
-	rows, _ := clusterAssignment.GetSize()
-	for i, j := 0, 0 ; i < rows; i++ {
-		if clusterAssignment.Get(i, 0) == float64(bestCentroidToSplit) {
-			clusterAssignment.Set(i, 0, bestClusterAssignment.Get(j, 0))
-			clusterAssignment.Set(i, 1, bestClusterAssignment.Get(j, 1))
-			j++
+		// Applying the split overwrites the existing cluster assginments for the 
+		// cluster you have decided to split.  Kmeansp() returned two clusters
+		// labeled 0 and 1. Change these cluster numbers to the cluster number
+		// you are splitting and the next cluster to be added.
+		m, err := matutil.FiltColMap(bestClusterAssignment, 1, 1, 0)
+		if err != nil {
+			return matCentroidlist, clusterAssignment, err
 		}
-	}
-	
-	// make centroidlist into a matrix
-	s := make([][]float64, len(centroidlist))
-	for i, mat := range centroidlist {
-		s[i][0] = mat.Get(0, 0)
-		s[i][1] = mat.Get(0, 1)
-	}
-	matCentroidlist = matrix.MakeDenseMatrixStacked(s)
+		for i,_ := range m {
+			bestClusterAssignment.Set(i, 0, float64(len(centroidlist)))
+		}	
 
+		n, err := matutil.FiltColMap(bestClusterAssignment, 0, 0, 0)
+		if err != nil {
+			return matCentroidlist, clusterAssignment, err
+		}
+		for i, _ := range n {
+			bestClusterAssignment.Set(i , 1, float64(bestCentroidToSplit))
+		}	
+
+		fmt.Printf("Best centroid to split %f\n", bestCentroidToSplit)
+		r,_ := bestClusterAssignment.GetSize()
+		fmt.Printf("The length of best cluster assesment is %f\n", r)
+
+		// Replace a centroid with the two best centroids from the split.
+		centroidlist[bestCentroidToSplit] = bestNewCentroids.GetRowVector(0)
+		centroidlist = append(centroidlist, bestNewCentroids.GetRowVector(1))
+
+		// Reassign new clusters and SSE
+		rows, _ := clusterAssignment.GetSize()
+		for i, j := 0, 0 ; i < rows; i++ {
+			if clusterAssignment.Get(i, 0) == float64(bestCentroidToSplit) {
+				clusterAssignment.Set(i, 0, bestClusterAssignment.Get(j, 0))
+				clusterAssignment.Set(i, 1, bestClusterAssignment.Get(j, 1))
+				j++
+			}
+		}
+	
+		// make centroidlist into a matrix
+		s := make([][]float64, len(centroidlist))
+		for i, mat := range centroidlist {
+			s[i][0] = mat.Get(0, 0)
+			s[i][1] = mat.Get(0, 1)
+		}
+		matCentroidlist = matrix.MakeDenseMatrixStacked(s)
+	}
 	return matCentroidlist, clusterAssignment, nil
 }

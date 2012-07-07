@@ -89,7 +89,7 @@ func SumCol(mat *matrix.DenseMatrix, col int) float64 {
 	return sum
 }
 
-// MeanCols calculates the means of the columns and returns a 1Xn matrix
+// MeanCols calculates the mean of the columns and returns a 1Xn matrix
 func MeanCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	numRows, numCols := mat.GetSize()
 	sums := SumCols(mat)
@@ -125,7 +125,7 @@ func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 // Return Value
 //
 // matches - a *matrix.DenseMatrix of the rows that match.
-func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (matches *matrix.DenseMatrix, err error) {
+func FiltCol(mat *matrix.DenseMatrix, min, max float64, col int) (matches *matrix.DenseMatrix, err error) {
 	r,c := mat.GetSize()
 	buf := make(map[int]float64)
 	
@@ -157,7 +157,7 @@ func FiltCol(min, max float64, col int, mat *matrix.DenseMatrix) (matches *matri
 //
 // matches - a map[int]float64 where the key is the row number in mat, 
 // and the value is the value in the column specified by col.
-func FiltColMap(min, max float64, col int, mat *matrix.DenseMatrix) (matches map[int]float64, err error) {
+func FiltColMap(mat *matrix.DenseMatrix, min, max float64, col int) (matches map[int]float64, err error) {
 	r,c := mat.GetSize()
 	matches = make(map[int]float64)
 	
@@ -221,7 +221,7 @@ func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) (dist float64, err er
 	return 
 }
 
-func SetRowVector(vector, target *matrix.DenseMatrix, row int) {
+func SetRowVector(target, vector *matrix.DenseMatrix, row int) {
 	c0 := vector.Get(0,0)
 	c1 := vector.Get(0,1)
 	target.Set(row, 0, c0)

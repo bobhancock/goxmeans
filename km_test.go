@@ -81,13 +81,15 @@ func TestRandCentroids(t *testing.T) {
 	k := 4
 	data := []float64{1, 2.0, 3, -4.945, 5, -6.1, 7, 8, 9}
 	mat := matrix.MakeDenseMatrix(data, rows, cols)
-	centroids := RandCentroids(mat, k)
+	cc := new(RandCentroids)
+	centroids := cc.ChooseCentroids(mat, k)
 
 	r, c := centroids.GetSize()
 	if r != k || c != cols {
 		t.Errorf("Returned centroid was %dx%d instead of %dx%d", r, c, rows, cols)
 	}
 }
+
 
 func TestComputeCentroid(t *testing.T) {
 	empty := matrix.Zeros(0, 0)
@@ -124,10 +126,11 @@ func TestKmeansp(t *testing.T) {
 	}
 	
 	var ed matutil.EuclidDist
+	var cc RandCentroids
 	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
 	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
 
-	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4, ed)
+	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
@@ -227,8 +230,9 @@ func TestKmeansbi(t *testing.T) {
 	}
 	
 	var ed matutil.EuclidDist
+	var cc RandCentroids
 
-	matCentroidlist, clusterAssignment, err := Kmeansp(dataPoints, 4, ed)
+	matCentroidlist, clusterAssignment, err := Kmeansp(dataPoints, 4, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
