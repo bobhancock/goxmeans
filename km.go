@@ -48,6 +48,8 @@ type CentroidChooser interface {
 
 type RandCentroids struct {}
 
+type DataCentroids struct {}
+
 // Load loads a tab delimited text file of floats into a slice.
 // Assume last column is the target.
 // For now, we limit ourselves to two columns
@@ -141,6 +143,23 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 			randInRange := ((maxj - minj) * rand.Float64()) + minj
 			centroids.Set(h, colnum, randInRange)
 		}
+	}
+	return centroids
+}
+
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+	// first set up a map to keep track of which data points have already been chosen so we don't dupe
+	rows, cols := mat.GetSize()
+	chosenIdxs := make(map [int]bool, k)
+	for len(chosenIdxs) < k {
+		index := rand.Intn(rows)
+		k[index] = true // d'oh, it doesn't like this
+	}
+	centroids := matrix.Zeros(k, cols)
+	i := 0
+	for idx, _ := range chosenIdxs {
+		matutil.SetRowVector(centroids, mat.GetRowVector(idx).Copy(), i)
+		i += 1
 	}
 	return centroids
 }
