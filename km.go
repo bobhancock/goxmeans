@@ -137,23 +137,9 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 
 		// create a slice of random centroids 
 		// based on maxj + minJ * random num to stay in range
-		// TODO: Better randomization or choose centroids 
-		// from datapoints.
-		rands := make([]float64, k)
-		for i := 0; i < k; i++ {
-			randint := float64(rand.Int())
-			rf := (maxj - minj) * randint
-			for rf > maxj {
-				if rf > maxj*3 {
-					rf = rf / maxj
-				} else {
-					rf = rf / 3.14
-				}
-			}
-			rands[i] = rf
-		}
 		for h := 0; h < k; h++ {
-			centroids.Set(h, colnum, rands[h])
+			randInRange := ((maxj - minj) * rand.Float64()) + minj
+			centroids.Set(h, colnum, randInRange)
 		}
 	}
 	return centroids
