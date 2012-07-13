@@ -46,8 +46,10 @@ type CentroidChooser interface {
 	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
 }
 
+// RandCentroids picks k uniformly distributed points from within the bounds of the dataset
 type RandCentroids struct {}
 
+// DataCentroids picks k distinct points from the dataset
 type DataCentroids struct {}
 
 // Load loads a tab delimited text file of floats into a slice.
@@ -153,7 +155,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	chosenIdxs := make(map [int]bool, k)
 	for len(chosenIdxs) < k {
 		index := rand.Intn(rows)
-		k[index] = true // d'oh, it doesn't like this
+		chosenIdxs[index] = true 
 	}
 	centroids := matrix.Zeros(k, cols)
 	i := 0
