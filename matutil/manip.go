@@ -11,7 +11,7 @@ import (
 	"math"
 )
 
-// ColSlice gets the values in column i of a matrix as a slice
+// ColSlice retrieves the values in column i of a matrix as a slice
 func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 	rows, _ := mat.GetSize()
 	r := make([]float64, rows)
