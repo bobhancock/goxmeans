@@ -127,6 +127,10 @@ func TestFiltCol(t *testing.T) {
 	if m2 !=4 {
 		t.Errorf("FiltCol: expected row 1 col 1 to be 3, but got %f",m2)
 	}
+	matches, err = FiltCol(mat, 100.0, 200.00, 1)
+	if err == nil {
+		t.Errorf("FiltCol did not return err on no match condition.")
+	}
 }
 
 func TestFiltColMap(t *testing.T) {
