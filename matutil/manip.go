@@ -152,6 +152,9 @@ func FiltCol(mat *matrix.DenseMatrix, min, max float64, col int) (matches *matri
 		}
 	}
 
+	if num_matches == 0 {
+		return matches, errors.New(fmt.Sprintf("matutil: No matches\n"))
+	}
 	matches = matrix.MakeDenseMatrix(buf, len(buf) / cols, cols)
 	return 
  }
