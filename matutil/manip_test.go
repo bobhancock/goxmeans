@@ -108,24 +108,23 @@ func TestFiltCol(t *testing.T) {
 		t.Errorf("FiltCol returned error: %v", err)
 		return
 	}
-	
 	r, _ := matches.GetSize()
 	if r != 3 {
 		t.Errorf("FiltCol: expected 3 rows and got %d", r)
 	}
 
-	m0 := matches.Get(1,1)
-	if m0 != 2 {
+	m0 := matches.Get(0,1)
+	if m0 != float64(2) {
 		t.Errorf("FiltCol: expected row 0 col 1 to be 2, but got %f",m0)
 	}
 
-	m1 := matches.Get(2, 1)
+	m1 := matches.Get(1, 1)
 	if m1 != 3 {
 		t.Errorf("FiltCol: expected row 1 col 1 to be 3, but got %f",m1)
 	}
 
-	m2 := matches.Get(3, 1)
-	if m2 != 4 {
+	m2 := matches.Get(2, 1)
+	if m2 !=4 {
 		t.Errorf("FiltCol: expected row 1 col 1 to be 3, but got %f",m2)
 	}
 }

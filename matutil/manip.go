@@ -126,27 +126,33 @@ func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 //
 // matches - a *matrix.DenseMatrix of the rows that match.
 func FiltCol(mat *matrix.DenseMatrix, min, max float64, col int) (matches *matrix.DenseMatrix, err error) {
-	r,c := mat.GetSize()
-	buf := make(map[int]float64)
+	rows, cols := mat.GetSize()
+	buf := make([]float64, cols)
 	
-	if col < 0 || col > c - 1 {
+	if col < 0 || col > cols - 1 {
 		matches = matrix.Zeros(1,1)
-		return matches, errors.New(fmt.Sprintf("matutil: Expected col vaule in range 0 to %d.  Received %d\n", c -1, col))
+		return matches, errors.New(fmt.Sprintf("matutil: Expected col vaule in range 0 to %d.  Received %d\n", cols -1, col))
 	}
 
-	for i := 0; i < r; i++ {
+	num_matches := 0
+	for i := 0; i < rows; i++ {
 		v := mat.Get(i, col)
-		if v >= min &&  v <= max {
-			buf[i] = v
+
+		if v >= min && v <= max {
+			if num_matches == 0 {
+				for j := 0; j < cols; j++ {
+					buf[j] = mat.Get(i, j)
+				}
+			} else {
+				for k := 0; k < cols; k++ {
+					buf = append(buf,  mat.Get(i, k))
+				}
+			}
+			num_matches++
 		}
 	}
-	matches = matrix.Zeros(len(buf), 2)
-	m := 0
-	for j, val := range buf {
-		matches.Set(m,0,float64(j))
-		matches.Set(m,1,val)
-		m++
-	}
+
+	matches = matrix.MakeDenseMatrix(buf, len(buf) / cols, cols)
 	return 
  }
 
