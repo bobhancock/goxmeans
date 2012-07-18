@@ -52,6 +52,11 @@ type RandCentroids struct {}
 // DataCentroids picks k distinct points from the dataset
 type DataCentroids struct {}
 
+// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
+type EllipseCentroids struct {
+	frac float // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
+}
+
 // Load loads a tab delimited text file of floats into a slice.
 // Assume last column is the target.
 // For now, we limit ourselves to two columns
@@ -165,6 +170,21 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	}
 	return centroids
 }
+
+func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+	rows, cols := mat.GetSize()
+	var xmin, xmax, ymin, ymax float64 // TODO - fxn to get these from the data matrix
+	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
+	centroids := matrix.Zeros(k, cols)
+	rx, ry := xmax - x0, ymax - y0  
+	thetaInit := rand.Float64() * math.Pi
+	for i := 0; i < k; i++ {
+		centroids.Set(i, 0, r0 * c.frac * math.Cos(thetaInit + i * math.Pi / k))
+		centroids.Set(i, 1, r1 * c.frac * math.Sin(thetaInit + i * math.Pi / k))		
+	}
+	return centroids
+}
+
 
 // ComputeCentroids Needs comments.
 func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
