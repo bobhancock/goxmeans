@@ -5,12 +5,13 @@
 package matutil
 
 import (
-	"code.google.com/p/gomatrix/matrix"
+	"github.com/bobhancock/gomatrix/matrix"
+//	"code.google.com/p/gomatrix/matrix"
 	"errors"
 	"fmt"
 	"math"
 )
-
+/*
 // ColSlice retrieves the values in column i of a matrix as a slice
 func ColSlice(mat *matrix.DenseMatrix, col int) []float64 {
 	rows, _ := mat.GetSize()
@@ -47,6 +48,7 @@ func AppendCol(mat *matrix.DenseMatrix, column []float64) (*matrix.DenseMatrix, 
 	return matrix.MakeDenseMatrix(source, rows, cols+1), err
 }
 
+
 // Pow raises every element of the matrix to power.  Returns a new
 // matrix
 func Pow(mat *matrix.DenseMatrix, power float64) *matrix.DenseMatrix {
@@ -60,6 +62,8 @@ func Pow(mat *matrix.DenseMatrix, power float64) *matrix.DenseMatrix {
 	}
 	return raised
 }
+
+
 
 // SumRows takes the sum of each row in a matrix and returns a 1Xn matrix of
 // the sums.
@@ -119,7 +123,7 @@ func SumCols(mat *matrix.DenseMatrix) *matrix.DenseMatrix {
 	}
 	return sums
 }
-
+ 
 // FiltCol find values that matches min <= A <= max for a specific column.
 //
 // Return Value
@@ -183,6 +187,7 @@ func FiltColMap(mat *matrix.DenseMatrix, min, max float64, col int) (matches map
 	return 
  }
 
+*/
 
 // Measurer finds the distance between the points in the columns
 type VectorMeasurer interface {
@@ -201,9 +206,9 @@ func (ed EuclidDist) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64
 	err = nil
 	diff := matrix.Difference(centroid, point)
 	//square the resulting matrix
-	sqr := Pow(diff, 2)
+	sqr := diff.Pow(2)
 	// sum of 1x2 matrix 
-	sum := SumRows(sqr)
+	sum := sqr.SumRows()
 	// square root of sum
 	s := sum.Get(0, 0)
 	dist = math.Sqrt(s)

@@ -17,7 +17,8 @@ import (
 	"strings"
 	"runtime"
 	"log"
-	"code.google.com/p/gomatrix/matrix"
+//	"code.google.com/p/gomatrix/matrix"
+	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
 )
 
@@ -120,7 +121,7 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	centroids := matrix.Zeros(k, cols)
 
 	for colnum := 0; colnum < cols; colnum++ {
-		r := matutil.ColSlice(mat, colnum)
+		r := mat.ColSlice(colnum)
 
 		minj := float64(0)
 		// min value from column
@@ -161,7 +162,7 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 // ComputeCentroids Needs comments.
 func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	rows, _ := mat.GetSize()
-	vectorSum := matutil.SumCols(mat)
+	vectorSum := mat.SumCols()
 	if rows == 0 {
 		return vectorSum, errors.New("No points inputted")
 	}
@@ -237,7 +238,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer 
 		// d is the index that identifies a row in centroidSqErr and datapoints.
 		// Select all the rows in centroidSqErr whose first col value == c.
 		// Get the corresponding row vector from datapoints and place it in pointsInCluster.
-		matches, err :=	matutil.FiltColMap(centroidSqErr, float64(c), float64(c), 0)  //rows with c in column 0.
+		matches, err :=	centroidSqErr.FiltColMap(float64(c), float64(c), 0)  //rows with c in column 0.
 		if err != nil {
 			return centroidMean, centroidSqErr, nil
 		}
@@ -255,7 +256,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer 
 
 		// pointsInCluster now contains all the data points for the current 
 		// centroid.  Take the mean of each of the 2 cols in pointsInCluster.
-		means := matutil.MeanCols(pointsInCluster)
+		means := pointsInCluster.MeanCols()
 		centroidMean.Set(c, 0, means.Get(0,0))
 		centroidMean.Set(c, 1, means.Get(0,1))
 	}
@@ -362,7 +363,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 	numRows, numCols := datapoints.GetSize()
 	clusterAssignment = matrix.Zeros(numRows, numCols)
 	matCentroidlist = matrix.Zeros(k, numCols)
-	centroid0 := matutil.MeanCols(datapoints)
+	centroid0 := datapoints.MeanCols()
 	centroidlist := []*matrix.DenseMatrix{centroid0}
 
 	// Initially create one cluster.
@@ -384,7 +385,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 		// Split cluster
 		for i, _ := range centroidlist {
 			// Get the points in this cluster
-			pointsCurCluster, err := matutil.FiltCol(clusterAssignment, float64(i), float64(i), 0)  
+			pointsCurCluster, err := clusterAssignment.FiltCol(float64(i), float64(i), 0)  
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
@@ -406,13 +407,13 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
             // Calculate the sum of squared errors for each centroid. 
             // This give a statistcal measurement of how good
             // the clustering is for this cluster.
-			sseSplit := matutil.SumCol(splitClusterAssignment, 1)
+			sseSplit := splitClusterAssignment.SumCol(1)
 			// Calculate the SSE for the original cluster
-			sqerr, err := matutil.FiltCol(clusterAssignment, float64(0), math.Inf(1), 0)
+			sqerr, err := clusterAssignment.FiltCol(float64(0), math.Inf(1), 0)
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
-			sseNotSplit := matutil.SumCol(sqerr, 1)
+			sseNotSplit := sqerr.SumCol(1)
 
 			// TODO: Pre-BCI is this the best way to evaluate?
 			if sseSplit + sseNotSplit < lowestSSE {
@@ -426,7 +427,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 		// cluster you have decided to split.  Kmeansp() returned two clusters
 		// labeled 0 and 1. Change these cluster numbers to the cluster number
 		// you are splitting and the next cluster to be added.
-		m, err := matutil.FiltColMap(bestClusterAssignment, 1, 1, 0)
+		m, err := bestClusterAssignment.FiltColMap(1, 1, 0)
 		if err != nil {
 			return matCentroidlist, clusterAssignment, err
 		}
@@ -434,7 +435,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 			bestClusterAssignment.Set(i, 0, float64(len(centroidlist)))
 		}	
 
-		n, err := matutil.FiltColMap(bestClusterAssignment, 0, 0, 0)
+		n, err := bestClusterAssignment.FiltColMap(0, 0, 0)
 		if err != nil {
 			return matCentroidlist, clusterAssignment, err
 		}
