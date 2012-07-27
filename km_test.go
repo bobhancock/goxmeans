@@ -2,10 +2,11 @@ package goxmeans
 
 import (
 	"bufio"
-	"code.google.com/p/gomatrix/matrix"
+//	"code.google.com/p/gomatrix/matrix"
 	"fmt"
 	"os"
 	"testing"
+	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
 )
 
