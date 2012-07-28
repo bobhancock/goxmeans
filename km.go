@@ -54,7 +54,7 @@ type DataCentroids struct {}
 
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
 type EllipseCentroids struct {
-	frac float // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
+	frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
 }
 
 // Load loads a tab delimited text file of floats into a slice.
@@ -157,6 +157,10 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
+	if k > rows {
+		fmt.Println("Can't compute more centroids than data points!")
+		return nil
+	}
 	chosenIdxs := make(map [int]bool, k)
 	for len(chosenIdxs) < k {
 		index := rand.Intn(rows)
@@ -172,19 +176,18 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 }
 
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
-	rows, cols := mat.GetSize()
-	var xmin, xmax, ymin, ymax float64 // TODO - fxn to get these from the data matrix
+	_, cols := mat.GetSize()
+	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
 	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
 	centroids := matrix.Zeros(k, cols)
 	rx, ry := xmax - x0, ymax - y0  
 	thetaInit := rand.Float64() * math.Pi
 	for i := 0; i < k; i++ {
-		centroids.Set(i, 0, r0 * c.frac * math.Cos(thetaInit + i * math.Pi / k))
-		centroids.Set(i, 1, r1 * c.frac * math.Sin(thetaInit + i * math.Pi / k))		
+		centroids.Set(i, 0, rx * c.frac * math.Cos(thetaInit + float64(i) * math.Pi / float64(k)))
+		centroids.Set(i, 1, ry * c.frac * math.Sin(thetaInit + float64(i) * math.Pi / float64(k)))
 	}
 	return centroids
 }
-
 
 // ComputeCentroids Needs comments.
 func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
@@ -196,6 +199,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	vectorSum.Scale(1.0 / float64(rows))
 	return vectorSum, nil
 }
+
 
 // Kmeansp returns means and distance squared of the coordinates for each 
 // centroid using parallel computation.

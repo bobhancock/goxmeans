@@ -79,15 +79,17 @@ func TestValidReturnLoad(t *testing.T) {
 func TestRandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
-	k := 4
+	k := 2
 	data := []float64{1, 2.0, 3, -4.945, 5, -6.1, 7, 8, 9}
 	mat := matrix.MakeDenseMatrix(data, rows, cols)
-	cc := new(RandCentroids)
-	centroids := cc.ChooseCentroids(mat, k)
+	choosers := []CentroidChooser{RandCentroids{}, DataCentroids{}, EllipseCentroids{0.5}}
+	for _, cc := range choosers{
+		centroids := cc.ChooseCentroids(mat, k)
 
-	r, c := centroids.GetSize()
-	if r != k || c != cols {
-		t.Errorf("Returned centroid was %dx%d instead of %dx%d", r, c, rows, cols)
+		r, c := centroids.GetSize()
+		if r != k || c != cols {
+			t.Errorf("Returned centroid was %dx%d instead of %dx%d", r, c, rows, cols)
+		}
 	}
 }
 
