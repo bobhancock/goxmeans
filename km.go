@@ -154,27 +154,29 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids
 }
 
-func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+// Needs comments.
+	func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
+	centroids := matrix.Zeros(k, cols)
 	if k > rows {
-		fmt.Println("Can't compute more centroids than data points!")
-		return nil
+		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
 	}
+
 	chosenIdxs := make(map [int]bool, k)
 	for len(chosenIdxs) < k {
 		index := rand.Intn(rows)
 		chosenIdxs[index] = true 
 	}
-	centroids := matrix.Zeros(k, cols)
 	i := 0
 	for idx, _ := range chosenIdxs {
 		matutil.SetRowVector(centroids, mat.GetRowVector(idx).Copy(), i)
 		i += 1
 	}
-	return centroids
+	return centroids, nil
 }
 
+// Needs comments
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
@@ -503,3 +505,10 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 	return matCentroidlist, clusterAssignment, nil
 }
 
+// variance calculates the unbiased variance based on the number of data points
+// and centroids (i.e., parameters).  In our case, centroid should always be 1
+// since each data point has been paired with one centroid.
+func variance(numpoints, numcentroids int, mat *matrix.DenseMatrix) float64 {
+	// 1 / numpoints - numcentroids X \sigma for all i (x_i - mu_(i)R)^2
+	return 0.0
+}

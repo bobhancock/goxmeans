@@ -6,7 +6,7 @@ An implementation of the x-means algorithm in Go.
 
 Dependencies
 ============
-gomatrix at http://code.google.com/p/gomatrix/
+gomatrix at https://github.com/bobhancock/gomatrix.git
 
 
 Members
@@ -16,6 +16,8 @@ Bob Hancock
 Dan Frank
 
 Anthony Foglia
+
+Ralph Yozzo
 
 
 Variable Names
