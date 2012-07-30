@@ -62,3 +62,31 @@ func SetRowVector(target, vector *matrix.DenseMatrix, row int) {
 	target.Set(row, 0, c0)
 	target.Set(row, 1, c1)
 }
+
+// GetBoundaries returns the max and min x and y values for a dense matrix
+// of shape m x 2.
+func GetBoundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
+	rows, cols := mat.GetSize()
+	if cols != 2 {
+		// TODO - should there be an err return, or should we panic here?
+	}
+	xmin, ymin = mat.Get(0,0), mat.Get(0,1)
+	xmax, ymax = mat.Get(0,0), mat.Get(0,1)
+	for i := 1; i < rows; i++ {
+		xi, yi := mat.Get(i, 0), mat.Get(i, 1)
+		
+		if xi > xmax{
+			xmax = xi
+		} else if xi < xmin {
+			xmin = xi
+		}
+
+		if yi > ymax{
+			ymax = yi
+		} else if yi < ymin {
+			ymin = yi
+		}
+	}
+	return
+}
+

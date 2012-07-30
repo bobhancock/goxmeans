@@ -46,7 +46,16 @@ type CentroidChooser interface {
 	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
 }
 
+// RandCentroids picks k uniformly distributed points from within the bounds of the dataset
 type RandCentroids struct {}
+
+// DataCentroids picks k distinct points from the dataset
+type DataCentroids struct {}
+
+// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
+type EllipseCentroids struct {
+	frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
+}
 
 // Load loads a tab delimited text file of floats into a slice.
 // Assume last column is the target.
@@ -137,24 +146,45 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 
 		// create a slice of random centroids 
 		// based on maxj + minJ * random num to stay in range
-		// TODO: Better randomization or choose centroids 
-		// from datapoints.
-		rands := make([]float64, k)
-		for i := 0; i < k; i++ {
-			randint := float64(rand.Int())
-			rf := (maxj - minj) * randint
-			for rf > maxj {
-				if rf > maxj*3 {
-					rf = rf / maxj
-				} else {
-					rf = rf / 3.14
-				}
-			}
-			rands[i] = rf
-		}
 		for h := 0; h < k; h++ {
-			centroids.Set(h, colnum, rands[h])
+			randInRange := ((maxj - minj) * rand.Float64()) + minj
+			centroids.Set(h, colnum, randInRange)
 		}
+	}
+	return centroids
+}
+
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+	// first set up a map to keep track of which data points have already been chosen so we don't dupe
+	rows, cols := mat.GetSize()
+	if k > rows {
+		fmt.Println("Can't compute more centroids than data points!")
+		return nil
+	}
+	chosenIdxs := make(map [int]bool, k)
+	for len(chosenIdxs) < k {
+		index := rand.Intn(rows)
+		chosenIdxs[index] = true 
+	}
+	centroids := matrix.Zeros(k, cols)
+	i := 0
+	for idx, _ := range chosenIdxs {
+		matutil.SetRowVector(centroids, mat.GetRowVector(idx).Copy(), i)
+		i += 1
+	}
+	return centroids
+}
+
+func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+	_, cols := mat.GetSize()
+	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
+	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
+	centroids := matrix.Zeros(k, cols)
+	rx, ry := xmax - x0, ymax - y0  
+	thetaInit := rand.Float64() * math.Pi
+	for i := 0; i < k; i++ {
+		centroids.Set(i, 0, rx * c.frac * math.Cos(thetaInit + float64(i) * math.Pi / float64(k)))
+		centroids.Set(i, 1, ry * c.frac * math.Sin(thetaInit + float64(i) * math.Pi / float64(k)))
 	}
 	return centroids
 }
@@ -169,6 +199,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	vectorSum.Scale(1.0 / float64(rows))
 	return vectorSum, nil
 }
+
 
 // Kmeansp returns means and distance squared of the coordinates for each 
 // centroid using parallel computation.
