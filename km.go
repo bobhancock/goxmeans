@@ -471,3 +471,4 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 	}
 	return matCentroidlist, clusterAssignment, nil
 }
+
