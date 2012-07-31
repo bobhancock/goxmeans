@@ -518,31 +518,38 @@ func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeas
 	if crows > 1 {
 		return float64(0), errors.New(fmt.Sprintf("variance: expected centroid matrix with 1 row, received matrix with %d rows.", crows))
 	}
-	prows, pcols := points.GetSize()
+	prows, _ := points.GetSize()
 	
 	// Term 1
 	t1 := float64(1 / float64((prows -1)))
 	
 	// Mean of distance between all points and the centroid. 
-	pdist := matrix.Zeros(prows, pcols)
-	for i := 0; i < prows; i++ {
-		diff := matrix.Difference(centroid, points.GetRowVector(i))
-		pdist.SetRowVector(diff, i)
-	}
-	mean := pdist.MeanCols()
+	mean := modelMean(points, centroid)
 	
 	// Term 2
-	// Sum over all points (point_i - mean)^2
+	// Sum over all points (point_i - mean(i))^2
 	t2 := float64(0)
 	for i := 0; i < prows; i++ {
 		p := points.GetRowVector(i)
-		dist, err := measurer.CalcDist(p, mean) //returns float64
+		dist, err := measurer.CalcDist(p, mean)
 		if err != nil {
 			return float64(-1), errors.New(fmt.Sprintf("variance: CalcDist returned: %v", err))
 		}
-		t2 += math.Pow(dist, 2)  // returns float64
+		t2 += math.Pow(dist, 2) 
 	}
 	variance := t1 * t2
 
 	return variance, nil
+}
+
+// modelMean calculates the mean between all points in a model and a centroid.
+func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
+	prows, pcols:= points.GetSize()
+	pdist := matrix.Zeros(prows, pcols)
+
+	for i := 0; i < prows; i++ {
+		diff := matrix.Difference(centroid, points.GetRowVector(i))
+		pdist.SetRowVector(diff, i)
+	}
+	return pdist.MeanCols()
 }
