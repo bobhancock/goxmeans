@@ -154,7 +154,7 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids
 }
 
-// Needs comments.
+// Needs comments
 	func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
@@ -184,6 +184,7 @@ func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matri
 	centroids := matrix.Zeros(k, cols)
 	rx, ry := xmax - x0, ymax - y0  
 	thetaInit := rand.Float64() * math.Pi
+
 	for i := 0; i < k; i++ {
 		centroids.Set(i, 0, rx * c.frac * math.Cos(thetaInit + float64(i) * math.Pi / float64(k)))
 		centroids.Set(i, 1, ry * c.frac * math.Sin(thetaInit + float64(i) * math.Pi / float64(k)))
@@ -386,12 +387,12 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // While the number of cluster < k
 //    for every cluster
 //        measure total error
-//        cal kmeansp with k=2 on a given cluster
+//        cacl kmeansp with k=2 on a given cluster
 //        measure total error after kmeansp split
 //    choose the cluster split with the lowest SSE
 //    commit the chosen split
 //
-// N.B. We are using SSE until the BCI is completed.
+// N.B. We are using SSE until the BIC is completed.
 func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (matCentroidlist, clusterAssignment *matrix.DenseMatrix, err error) {
 	numRows, numCols := datapoints.GetSize()
 	clusterAssignment = matrix.Zeros(numRows, numCols)
@@ -506,9 +507,43 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 }
 
 // variance calculates the unbiased variance based on the number of data points
-// and centroids (i.e., parameters).  In our case, centroid should always be 1
+// and centroids (i.e., parameters).  In our case, numcentroids should always be 1
 // since each data point has been paired with one centroid.
-func variance(numpoints, numcentroids int, mat *matrix.DenseMatrix) float64 {
-	// 1 / numpoints - numcentroids X \sigma for all i (x_i - mu_(i)R)^2
-	return 0.0
+//
+// The points matrix contains the coordinates of the data points.
+// The centroids matrix is 1Xn that contains the centroid cooordinates.
+func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) (float64, error) {
+	// 1 / numpoints - numcentroids X sum for all points  (x_i - mean_(i))^2
+	crows, _ := centroid.GetSize()
+	if crows > 1 {
+		return float64(0), errors.New(fmt.Sprintf("variance: expected centroid matrix with 1 row, received matrix with %d rows.", crows))
+	}
+	rows, cols := points.GetSize()
+	
+	// Term 1
+	t1 := float64(1 / (rows -1))
+	
+	// Mean of distance between all points and the centroid. 
+	pdist := matrix.Zeros(rows, cols)
+	for i := 0; i < rows; i++ {
+		diff := matrix.Difference(centroid, points.GetRowVector(1))
+		matutil.SetRowVector(pdist, diff, i)
+	}
+	mean := pdist.MeanCols()
+	
+	// Term 2
+	// Sum over all points (point_i - mean)^2
+	t2 := float64(0)
+	for t2, i := float64(0), 0; i < rows; i++ {
+		p := points.GetRowVector(i)
+		dist, err := measurer.CalcDist(p, mean) //returns float64
+		if err != nil {
+			return float64(-1), errors.New(fmt.Sprintf("variance: CalcDist returned: %v", err))
+		}
+		t2 += math.Pow(dist, 2)  // returns float64
+	}
+
+	variance := t1 * t2
+
+	return variance, nil
 }
