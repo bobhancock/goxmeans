@@ -20,7 +20,7 @@ type VectorDistance struct {}
 type EuclidDist VectorDistance
 
 // CalcDist finds the Euclidean distance between a centroid
-// a point in the data set.  Arguments are 1x2 matrices.
+// and a  point in the data set.  Arguments are 1x2 matrices.
 // All intermediary l-values except s are matricies. The functions that
 // operate on them can all take nXn matricies as arguments.
 func (ed EuclidDist) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64, err error) {
@@ -29,7 +29,7 @@ func (ed EuclidDist) CalcDist(centroid, point *matrix.DenseMatrix) (dist float64
 	//square the resulting matrix
 	sqr := diff.Pow(2)
 	// sum of 1x2 matrix 
-	sum := sqr.SumRows()
+	sum := sqr.SumRows() // n X 1 matrix
 	// square root of sum
 	s := sum.Get(0, 0)
 	dist = math.Sqrt(s)
