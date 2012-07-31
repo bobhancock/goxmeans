@@ -271,3 +271,13 @@ func TestVariance(t *testing.T) {
 		t.Errorf("TestVariance: variance should be 8.452500 but received %f", v)
 	}
 }
+
+func TestModelMean(t *testing.T) {
+	points := matrix.MakeDenseMatrix([]float64{1,2,5,6}, 2,2)
+	centroid := matrix.MakeDenseMatrix([]float64{5, 5.5}, 1,2)
+	m := modelMean(points, centroid)
+	if m.Get(0,0) != 2 || m.Get(0,1) != 1.5 {
+		t.Errorf("TestModelMean: expected [2, 1.5] but received %v.", m)
+	}
+	fmt.Println(m)
+}
