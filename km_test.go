@@ -76,7 +76,7 @@ func TestValidReturnLoad(t *testing.T) {
 	}
 }
 
-func TestRandCentroids(t *testing.T) {
+/*func TestRandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
 	k := 2
@@ -91,7 +91,7 @@ func TestRandCentroids(t *testing.T) {
 			t.Errorf("Returned centroid was %dx%d instead of %dx%d", r, c, rows, cols)
 		}
 	}
-}
+}*/
 
 
 func TestComputeCentroid(t *testing.T) {
@@ -249,4 +249,25 @@ func TestKmeansbi(t *testing.T) {
 		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
 	}
 }
-   
+  
+func TestVariance(t *testing.T) {
+	points := matrix.MakeDenseMatrix([]float64{1.2, 2.1, 
+                                            3.3, 2.2, 
+                                            4.1, 3.2, 
+                                            5.3, 4.1},
+		4,2) 
+
+	centroid := matrix.MakeDenseMatrix([]float64{6.5, 4},
+		1,2)
+	
+	var ed matutil.EuclidDist 
+
+	v, err := variance(points, centroid, ed)
+	if err != nil {
+		t.Errorf("TestVaricance:variance returned error %v.", err)
+	}
+	//fmt.Printf("v=%f\n",v)
+	if v != 8.452500 {
+		t.Errorf("TestVariance: variance should be 8.452500 but received %f", v)
+	}
+}

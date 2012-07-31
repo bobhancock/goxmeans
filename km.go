@@ -521,28 +521,33 @@ func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeas
 	rows, cols := points.GetSize()
 	
 	// Term 1
-	t1 := float64(1 / (rows -1))
+	t1 := float64(1 / float64((rows -1)))
+	//fmt.Printf("t1 = %f\n", t1)
 	
 	// Mean of distance between all points and the centroid. 
 	pdist := matrix.Zeros(rows, cols)
 	for i := 0; i < rows; i++ {
-		diff := matrix.Difference(centroid, points.GetRowVector(1))
-		matutil.SetRowVector(pdist, diff, i)
+		diff := matrix.Difference(centroid, points.GetRowVector(i))
+		pdist.SetRowVector(diff, i)
 	}
+	//fmt.Printf("pdist=%v\n\n", pdist)
 	mean := pdist.MeanCols()
 	
 	// Term 2
 	// Sum over all points (point_i - mean)^2
 	t2 := float64(0)
-	for t2, i := float64(0), 0; i < rows; i++ {
+	for i := 0; i < rows; i++ {
 		p := points.GetRowVector(i)
+//		fmt.Printf("point=%v  mean=%v\n", p, mean)
 		dist, err := measurer.CalcDist(p, mean) //returns float64
 		if err != nil {
 			return float64(-1), errors.New(fmt.Sprintf("variance: CalcDist returned: %v", err))
 		}
+//		fmt.Printf("\tdist = %v\n", dist)
+//		fmt.Printf("Before: t2 = %f\n", t2)
 		t2 += math.Pow(dist, 2)  // returns float64
+//		fmt.Printf("After: t2 = %f\n", t2)
 	}
-
 	variance := t1 * t2
 
 	return variance, nil
