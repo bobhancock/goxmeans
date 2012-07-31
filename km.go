@@ -512,8 +512,8 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 //
 // The points matrix contains the coordinates of the data points.
 // The centroids matrix is 1Xn that contains the centroid cooordinates.
+// variance = 	// 1 / (numpoints - numcentroids) * sum for all points  (x_i - mean_(i))^2
 func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) (float64, error) {
-	// 1 / numpoints - numcentroids X sum for all points  (x_i - mean_(i))^2
 	crows, _ := centroid.GetSize()
 	if crows > 1 {
 		return float64(0), errors.New(fmt.Sprintf("variance: expected centroid matrix with 1 row, received matrix with %d rows.", crows))
