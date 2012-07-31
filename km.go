@@ -169,7 +169,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	centroids := matrix.Zeros(k, cols)
 	i := 0
 	for idx, _ := range chosenIdxs {
-		matutil.SetRowVector(centroids, mat.GetRowVector(idx).Copy(), i)
+		centroids.SetRowVector(mat.GetRowVector(idx).Copy(), i)
 		i += 1
 	}
 	return centroids
