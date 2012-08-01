@@ -553,3 +553,25 @@ func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 	}
 	return pdist.MeanCols()
 }
+
+// llv or log likelihood value finds the likelihood for a specific cluster with one centroid.
+// TODO See page 3 of equation generations for llv
+func llvCluster(clusterPoints, centroid *matrix.DenseMatrix, measurer matutil.VectorMeasurer, dimensions, numAllPoints float64) (float64, error) {
+	variance, err := variance(clusterPoints, centroid, measurer)
+	if err != nil {
+		return 0, err
+	}
+	rows, _ := clusterPoints.GetSize()
+
+	numClusterPoints := float64(rows)
+	K := float64(1) // TODO number of clusters.  Is this always 1 here?
+	f2 := float64(2)
+	
+	t0 := -(numClusterPoints / f2) * math.Log(f2 * math.Pi)
+	t1 := ((numClusterPoints * dimensions) / f2) * math.Log(variance)
+	t2 := ((numClusterPoints - K) / f2) + (numClusterPoints * math.Log(numClusterPoints))
+	t3 := numClusterPoints * math.Log(numAllPoints)
+
+	llv := t0 - t1 - t2 - t3
+	return llv, nil
+}
