@@ -524,7 +524,7 @@ func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeas
 	t1 := float64(1 / float64((prows -1)))
 	
 	// Mean of distance between all points and the centroid. 
-	mean := modelMean(points, centroid)
+	mean := clustMean(points, centroid)
 	
 	// Term 2
 	// Sum over all points (point_i - mean(i))^2
@@ -542,36 +542,40 @@ func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeas
 	return variance, nil
 }
 
-// modelMean calculates the mean between all points in a model and a centroid.
-func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
+// clusterMean calculates the mean between all points in a cluster and a centroid.
+func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 	prows, pcols:= points.GetSize()
-	pdist := matrix.Zeros(prows, pcols)
+	dist := matrix.Zeros(prows, pcols)
 
 	for i := 0; i < prows; i++ {
 		diff := matrix.Difference(centroid, points.GetRowVector(i))
-		pdist.SetRowVector(diff, i)
+		dist.SetRowVector(diff, i)
 	}
-	return pdist.MeanCols()
+	return dist.MeanCols()
 }
 
-// llv or log likelihood value finds the likelihood for a specific cluster with one centroid.
-// TODO See page 3 of equation generations for llv
-func llvCluster(clusterPoints, centroid *matrix.DenseMatrix, measurer matutil.VectorMeasurer, dimensions, numAllPoints float64) (float64, error) {
-	variance, err := variance(clusterPoints, centroid, measurer)
-	if err != nil {
-		return 0, err
-	}
-	rows, _ := clusterPoints.GetSize()
-
-	numClusterPoints := float64(rows)
-	K := float64(1) // TODO number of clusters.  Is this always 1 here?
+// mll or maximum log likelihood finds the likelihood for a specific cluster with one centroid.
+//
+// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
+//
+// D = set of points
+// K = number of clusters
+// R = |D|
+// R_n = |D_n|
+// M = # of dimensions
+// V = unbiased V of D
+//
+// All logs are log e.
+//
+// c prefix indicates "count".
+func mll(R, Rn, M, V, K float64) (float64) {
 	f2 := float64(2)
 	
-	t0 := -(numClusterPoints / f2) * math.Log(f2 * math.Pi)
-	t1 := ((numClusterPoints * dimensions) / f2) * math.Log(variance)
-	t2 := ((numClusterPoints - K) / f2) + (numClusterPoints * math.Log(numClusterPoints))
-	t3 := numClusterPoints * math.Log(numAllPoints)
+	// terms
+	t0 := Rn * math.Log(Rn)
+	t1 := R * math.Log(R)
+	t2 := (R * M) / math.Log(f2 * math.Pi * V)
+	t3 := (1 / f2) * (R - K)
 
-	llv := t0 - t1 - t2 - t3
-	return llv, nil
+	return t0 - t1 - t2 - t3
 }
