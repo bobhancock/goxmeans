@@ -391,8 +391,6 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 //        measure total error after kmeansp split
 //    choose the cluster split with the lowest SSE
 //    commit the chosen split
-//
-// N.B. We are using SSE until the BIC is completed.
 func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (matCentroidlist, clusterAssignment *matrix.DenseMatrix, err error) {
 	numRows, numCols := datapoints.GetSize()
 	clusterAssignment = matrix.Zeros(numRows, numCols)
@@ -449,7 +447,6 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 			}
 			sseNotSplit := sqerr.SumCol(1)
 
-			// TODO: Pre-BCI is this the best way to evaluate?
 			if sseSplit + sseNotSplit < lowestSSE {
 				bestCentroidToSplit = 1
 				bestNewCentroids = matrix.MakeDenseCopy(centroids)
@@ -506,54 +503,44 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 	return matCentroidlist, clusterAssignment, nil
 }
 
-// variance calculates the unbiased variance based on the number of data points
-// and centroids (i.e., parameters).  In our case, numcentroids should always be 1
-// since each data point has been paired with one centroid.
+// variance is the maximum likelihood estimate (MLE) for the variance, under
+// identical the spherical Gaussian assumption.
 //
-// The points matrix contains the coordinates of the data points.
-// The centroids matrix is 1Xn that contains the centroid cooordinates.
-// variance = 	// 1 / (numpoints - K) * sum for all points  (x_i - mean_(i))^2
-func variance(points, centroid *matrix.DenseMatrix,  K int, measurer matutil.VectorMeasurer) (float64, error) {
-	crows, _ := centroid.GetSize()
-	if crows > 1 {
-		return float64(0), errors.New(fmt.Sprintf("variance: expected centroid matrix with 1 row, received matrix with %d rows.", crows))
-	}
-	prows, _ := points.GetSize()
-	
-	// Mean of distance between all points and the centroid. 
-	mean := clustMean(points, centroid)
-	
-	t0 := float64(1 / float64((prows - K)))
+// variance = 	(1 / (R - K) * \sigma for all i  (x_i - mean_(i))^2
+// where i indexes the individual points
+func variance(points, mean *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) (float64, error) {
+	r, _ := points.GetSize()
+	R := int(r)
 	
 	// Sum over all points (point_i - mean(i))^2
-	t1 := float64(0)
-	for i := 0; i < prows; i++ {
+	sum := float64(0)
+	for i := 0; i < R; i++ {
 		p := points.GetRowVector(i)
 		dist, err := measurer.CalcDist(p, mean)
 		if err != nil {
 			return float64(-1), errors.New(fmt.Sprintf("variance: CalcDist returned: %v", err))
 		}
-		t1 += math.Pow(dist, 2) 
+		sum += math.Pow(dist, 2) 
 	}
-	variance := t0 * t1
+	variance := float64((1 / R - K)) * sum
 
 	return variance, nil
 }
 
 // clusterMean calculates the mean between all points in a cluster and a centroid.
 func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
-	prows, pcols:= points.GetSize()
-	dist := matrix.Zeros(prows, pcols)
+	R, cols:= points.GetSize()
+	dist := matrix.Zeros(R, cols)
 
-	for i := 0; i < prows; i++ {
+	for i := 0; i < R; i++ {
 		diff := matrix.Difference(centroid, points.GetRowVector(i))
 		dist.SetRowVector(diff, i)
 	}
 	return dist.MeanCols()
 }
 
-// mll or maximum log likelihood estimate finds the likelihood for a specific 
-// cluster with one centroid.
+// loglikeli is the log likelihood estimate of the data taken at the maximum
+// likelihood point.
 //
 // D = set of points
 // R = |D|
@@ -564,21 +551,45 @@ func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 //
 // l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
 //
-// All logs are log e.
+// All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
-// N.B. When applying this to D, the R = Rn.  When bisecting, R refers to the original,
+// N.B. When applying this to D, then R = Rn.  When bisecting, R refers to the original,
 // or parent cluster, Rn is a member of the set {R_0, R_1} the two child clusters.
-func mle(R, M, V, K float64, Rn []float64) (float64) {
+func loglikeli(R, M, V, K float64, Rn []float64) (float64) {
 	t1 := R * math.Log(R)
 	t2 := (R * M) / math.Log(2.0 * math.Pi * V)
 	t3 := (1 / 2.0) * (R - K)
-	ts := -t1 - t2 - t3
+	ts :=-t1 - t2 - t3
 
 	lD := float64(0)
 	for n := 0; n < int(K); n++ {
 		t0 := Rn[n] * math.Log(Rn[n])
-		s := t0 + ts
+		s := t0 - ts
 		lD += s
 	}
 	return lD
+}
+
+// pointProb calculates the probability of an individual point.
+//
+// R = |D|
+// Ri = |Dn| for the cluster contining the point x_i.
+// M = # of dimensions
+// V = variance of Dn
+// mean(i) =  the mean distance between all points in Dn and a centroid. 
+//
+// P(x_i) = [ (Ri / R) * (1 / sqrt(2 * Pi) * V)^M ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
+func pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (float64, error) {
+	stddev := math.Sqrt(V)
+	dist,err := measurer.CalcDist(point, mean)
+	if err != nil {
+		return 0.0, errors.New(fmt.Sprintf("pointProb: CalcDist returned error=%v", err))
+	}
+
+	t0 := float64(Ri / R)
+	base := 1 / math.Pow(math.Sqrt(2.0 * math.Pi) * stddev, float64(M))
+	exp := -(1.0/(2.0 * V)) * math.Abs(dist)
+	prob := t0 * math.Pow(base, exp)
+	
+	return prob, nil
 }
