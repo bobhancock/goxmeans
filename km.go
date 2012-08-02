@@ -512,32 +512,30 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 //
 // The points matrix contains the coordinates of the data points.
 // The centroids matrix is 1Xn that contains the centroid cooordinates.
-// variance = 	// 1 / (numpoints - numcentroids) * sum for all points  (x_i - mean_(i))^2
-func variance(points, centroid *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) (float64, error) {
+// variance = 	// 1 / (numpoints - K) * sum for all points  (x_i - mean_(i))^2
+func variance(points, centroid *matrix.DenseMatrix,  K int, measurer matutil.VectorMeasurer) (float64, error) {
 	crows, _ := centroid.GetSize()
 	if crows > 1 {
 		return float64(0), errors.New(fmt.Sprintf("variance: expected centroid matrix with 1 row, received matrix with %d rows.", crows))
 	}
 	prows, _ := points.GetSize()
 	
-	// Term 1
-	t1 := float64(1 / float64((prows -1)))
-	
 	// Mean of distance between all points and the centroid. 
 	mean := clustMean(points, centroid)
 	
-	// Term 2
+	t0 := float64(1 / float64((prows - K)))
+	
 	// Sum over all points (point_i - mean(i))^2
-	t2 := float64(0)
+	t1 := float64(0)
 	for i := 0; i < prows; i++ {
 		p := points.GetRowVector(i)
 		dist, err := measurer.CalcDist(p, mean)
 		if err != nil {
 			return float64(-1), errors.New(fmt.Sprintf("variance: CalcDist returned: %v", err))
 		}
-		t2 += math.Pow(dist, 2) 
+		t1 += math.Pow(dist, 2) 
 	}
-	variance := t1 * t2
+	variance := t0 * t1
 
 	return variance, nil
 }
@@ -554,9 +552,8 @@ func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 	return dist.MeanCols()
 }
 
-// mll or maximum log likelihood finds the likelihood for a specific cluster with one centroid.
-//
-// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
+// mll or maximum log likelihood estimate finds the likelihood for a specific 
+// cluster with one centroid.
 //
 // D = set of points
 // K = number of clusters
@@ -567,8 +564,11 @@ func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 //
 // All logs are log e.
 //
-// c prefix indicates "count".
-func mll(R, Rn, M, V, K float64) (float64) {
+// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
+//
+// N.B. When applying this to D, the R = Rn.  When bisecting, R refers to the original,
+// or parent cluster, Rn is a member of the set {R_0, R_1} the two child clusters.
+func mle(R, Rn, M, V, K float64) (float64) {
 	f2 := float64(2)
 	
 	// terms
@@ -577,5 +577,10 @@ func mll(R, Rn, M, V, K float64) (float64) {
 	t2 := (R * M) / math.Log(f2 * math.Pi * V)
 	t3 := (1 / f2) * (R - K)
 
-	return t0 - t1 - t2 - t3
+	lD := float64(0)
+	for i := 0 ; i < K; i++ {
+		s := t0 - t1 - t2 - t3
+		lD += s
+	}
+	return lD
 }
