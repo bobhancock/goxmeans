@@ -556,30 +556,28 @@ func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 // cluster with one centroid.
 //
 // D = set of points
-// K = number of clusters
 // R = |D|
 // R_n = |D_n|
 // M = # of dimensions
 // V = unbiased V of D
-//
-// All logs are log e.
+// K = number of clusters
 //
 // l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
 //
+// All logs are log e.
+//
 // N.B. When applying this to D, the R = Rn.  When bisecting, R refers to the original,
 // or parent cluster, Rn is a member of the set {R_0, R_1} the two child clusters.
-func mle(R, Rn, M, V, K float64) (float64) {
-	f2 := float64(2)
-	
-	// terms
-	t0 := Rn * math.Log(Rn)
+func mle(R, M, V, K float64, Rn []float64) (float64) {
 	t1 := R * math.Log(R)
-	t2 := (R * M) / math.Log(f2 * math.Pi * V)
-	t3 := (1 / f2) * (R - K)
+	t2 := (R * M) / math.Log(2.0 * math.Pi * V)
+	t3 := (1 / 2.0) * (R - K)
+	ts := -t1 - t2 - t3
 
 	lD := float64(0)
-	for i := 0 ; i < K; i++ {
-		s := t0 - t1 - t2 - t3
+	for n := 0; n < int(K); n++ {
+		t0 := Rn[n] * math.Log(Rn[n])
+		s := t0 + ts
 		lD += s
 	}
 	return lD
