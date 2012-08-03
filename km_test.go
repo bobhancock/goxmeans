@@ -273,7 +273,7 @@ func TestVariance(t *testing.T) {
 	diff := math.Abs(v - na) 
 
 	if diff > epsilon {
-		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f", E, v, diff, epsilon)
+		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
 	}
 }
 
@@ -283,5 +283,32 @@ func TestModelMean(t *testing.T) {
 	m := modelMean(points, centroid)
 	if m.Get(0,0) != 6 || m.Get(0,1) != 8 {
 		t.Errorf("TestModelMean: expected [2, 1.5] but received %v.", m)
+	}
+}
+
+func TestPointProb(t *testing.T) {
+	R := 10010.0
+	Ri := 100.0
+	M := 2.0
+	V := 20.000000
+
+	point := matrix.MakeDenseMatrix([]float64{5, 7},
+		1,2)
+
+	mean := matrix.MakeDenseMatrix([]float64{6, 8},
+		1,2)
+
+	var ed matutil.EuclidDist 
+
+	//	pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (float64, error) 
+	pp := pointProb(R, Ri, M, V, point, mean, ed)
+
+	E :=  0.011473
+	epsilon := .000001
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(pp - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestPointProb: expected %f but received %f.  The difference %f exceeds epsilon %f", E, pp, diff, epsilon)
 	}
 }

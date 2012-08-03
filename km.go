@@ -538,17 +538,32 @@ func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 // V = variance of Dn
 // mean(i) =  the mean distance between all points in Dn and a centroid. 
 //
-// P(x_i) = [ (Ri / R) * (1 / sqrt(2 * Pi) * V)^M ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
-func pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (float64, error) {
+// P(x_i) = [ (Ri / R) * (1 / (sqrt(2 * Pi) * stddev^M) ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
+func pointProb(R, Ri, M, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
 	dist := measurer.CalcDist(point, mean)
+	//fmt.Printf("dist=%f\n", dist)
 	stddev := math.Sqrt(V)
 
-	t0 := float64(Ri / R)
-	base := 1 / math.Pow(math.Sqrt(2.0 * math.Pi) * stddev, float64(M))
+	term1 := float64(Ri / R)
+	//fmt.Printf("term1=%f\n", term1)
+
+	sqrt2pi := math.Sqrt(2.0 * math.Pi)
+	//fmt.Printf("sqrt2pi=%f\n", sqrt2pi)
+
+	stddevM := math.Pow(stddev, M)
+	//fmt.Printf("stddevM=%f\n", stddevM)
+
+	base := 1 / (sqrt2pi * stddevM)
+	//fmt.Printf("base=%f\n", base)
+
 	exp := -(1.0/(2.0 * V)) * math.Abs(dist)
-	prob := t0 * math.Pow(base, exp)
-	
-	return prob, nil
+	//fmt.Printf("exp=%f\n",exp)
+
+	term2 := math.Pow(base, exp)
+	//fmt.Printf("term2=%f\n", term2)
+
+	prob := term1 * term2
+	return prob
 }
 
 // loglikeli is the log likelihood estimate of the data taken at the maximum
@@ -571,7 +586,7 @@ func loglikeli(R, M, V, K float64, Rn []float64) (float64) {
 	t1 := R * math.Log(R)
 	t2 := (R * M) / math.Log(2.0 * math.Pi * V)
 	t3 := (1 / 2.0) * (R - K)
-	ts :=-t1 - t2 - t3
+	ts := -t1 - t2 - t3
 
 	lD := float64(0)
 	for n := 0; n < int(K); n++ {
