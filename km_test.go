@@ -5,6 +5,7 @@ import (
 //	"code.google.com/p/gomatrix/matrix"
 	"fmt"
 	"os"
+	"math"
 	"testing"
 	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
@@ -251,33 +252,36 @@ func TestKmeansbi(t *testing.T) {
 }
   
 func TestVariance(t *testing.T) {
-	points := matrix.MakeDenseMatrix([]float64{1.2, 2.1, 
-                                            3.3, 2.2, 
-                                            4.1, 3.2, 
-                                            5.3, 4.1},
-		4,2) 
+	points := matrix.MakeDenseMatrix([]float64{3, 5, 
+                                            5, 7},
+		2,2)
 
-	centroid := matrix.MakeDenseMatrix([]float64{6.5, 4},
+	centroid := matrix.MakeDenseMatrix([]float64{10, 14},
 		1,2)
 	
+	mean := modelMean(points, centroid)
 	var ed matutil.EuclidDist 
 
-	v, err := variance(points, centroid, ed)
+	v, err := variance(points, mean, 1, ed)
 	if err != nil {
 		t.Errorf("TestVaricance:variance returned error %v.", err)
 	}
-	//fmt.Printf("v=%f\n",v)
-	if v != 8.452500 {
-		t.Errorf("TestVariance: variance should be 8.452500 but received %f", v)
+	
+	E := 20.000000
+	epsilon := .000001
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(v - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f", E, v, diff, epsilon)
 	}
 }
 
 func TestModelMean(t *testing.T) {
-	points := matrix.MakeDenseMatrix([]float64{1,2,5,6}, 2,2)
-	centroid := matrix.MakeDenseMatrix([]float64{5, 5.5}, 1,2)
+	points := matrix.MakeDenseMatrix([]float64{3,5,5,7}, 2,2)
+	centroid := matrix.MakeDenseMatrix([]float64{10, 14}, 1,2)
 	m := modelMean(points, centroid)
-	if m.Get(0,0) != 2 || m.Get(0,1) != 1.5 {
+	if m.Get(0,0) != 6 || m.Get(0,1) != 8 {
 		t.Errorf("TestModelMean: expected [2, 1.5] but received %v.", m)
 	}
-	fmt.Println(m)
 }

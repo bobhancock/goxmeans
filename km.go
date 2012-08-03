@@ -369,10 +369,7 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 
 	// Find the centroid that is closest to this point.
     for j := 0; j < k; j++ { 
-     	distJ, err := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
-		if err != nil {
-			continue
-		}
+     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
         if distJ  < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
@@ -401,10 +398,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 	// Initially create one cluster.
 	for j := 0; j < numRows; j++ {
 		point := datapoints.GetRowVector(j)
-     	distJ, err := measurer.CalcDist(centroid0, point)
-		if err != nil {
-			return matCentroidlist, clusterAssignment, errors.New(fmt.Sprintf("Kmeansbi: CalcDist returned err=%v", err))
-		}
+     	distJ := measurer.CalcDist(centroid0, point)
 		clusterAssignment.Set(j,1, math.Pow(distJ, 2))
 	}
 
@@ -504,7 +498,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 }
 
 // variance is the maximum likelihood estimate (MLE) for the variance, under
-// identical the spherical Gaussian assumption.
+// the identical spherical Gaussian assumption.
 //
 // variance = 	(1 / (R - K) * \sigma for all i  (x_i - mean_(i))^2
 // where i indexes the individual points
@@ -516,19 +510,16 @@ func variance(points, mean *matrix.DenseMatrix, K int, measurer matutil.VectorMe
 	sum := float64(0)
 	for i := 0; i < R; i++ {
 		p := points.GetRowVector(i)
-		dist, err := measurer.CalcDist(p, mean)
-		if err != nil {
-			return float64(-1), errors.New(fmt.Sprintf("variance: CalcDist returned: %v", err))
-		}
+		dist := measurer.CalcDist(mean, p)
 		sum += math.Pow(dist, 2) 
 	}
-	variance := float64((1 / R - K)) * sum
+	variance := float64((1 / (R - K))) * sum
 
 	return variance, nil
 }
 
 // clusterMean calculates the mean between all points in a cluster and a centroid.
-func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
+func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 	R, cols:= points.GetSize()
 	dist := matrix.Zeros(R, cols)
 
@@ -539,8 +530,29 @@ func clustMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 	return dist.MeanCols()
 }
 
+// pointProb calculates the probability of an individual point.
+//
+// R = |D|
+// Ri = |Dn| for the cluster contining the point x_i.
+// M = # of dimensions
+// V = variance of Dn
+// mean(i) =  the mean distance between all points in Dn and a centroid. 
+//
+// P(x_i) = [ (Ri / R) * (1 / sqrt(2 * Pi) * V)^M ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
+func pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (float64, error) {
+	dist := measurer.CalcDist(point, mean)
+	stddev := math.Sqrt(V)
+
+	t0 := float64(Ri / R)
+	base := 1 / math.Pow(math.Sqrt(2.0 * math.Pi) * stddev, float64(M))
+	exp := -(1.0/(2.0 * V)) * math.Abs(dist)
+	prob := t0 * math.Pow(base, exp)
+	
+	return prob, nil
+}
+
 // loglikeli is the log likelihood estimate of the data taken at the maximum
-// likelihood point.
+// likelihood point.  1 <= n <= K
 //
 // D = set of points
 // R = |D|
@@ -570,26 +582,4 @@ func loglikeli(R, M, V, K float64, Rn []float64) (float64) {
 	return lD
 }
 
-// pointProb calculates the probability of an individual point.
-//
-// R = |D|
-// Ri = |Dn| for the cluster contining the point x_i.
-// M = # of dimensions
-// V = variance of Dn
-// mean(i) =  the mean distance between all points in Dn and a centroid. 
-//
-// P(x_i) = [ (Ri / R) * (1 / sqrt(2 * Pi) * V)^M ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
-func pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (float64, error) {
-	stddev := math.Sqrt(V)
-	dist,err := measurer.CalcDist(point, mean)
-	if err != nil {
-		return 0.0, errors.New(fmt.Sprintf("pointProb: CalcDist returned error=%v", err))
-	}
 
-	t0 := float64(Ri / R)
-	base := 1 / math.Pow(math.Sqrt(2.0 * math.Pi) * stddev, float64(M))
-	exp := -(1.0/(2.0 * V)) * math.Abs(dist)
-	prob := t0 * math.Pow(base, exp)
-	
-	return prob, nil
-}

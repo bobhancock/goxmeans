@@ -16,10 +16,7 @@ func TestEuclidDist(t *testing.T) {
 
 	centroid := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
 	point := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
-	calcEd, err := ed.CalcDist(centroid, point)
-	if err != nil {
-		t.Errorf("EuclidDist: returned an error.  err=%v", err)
-	}
+	calcEd := ed.CalcDist(centroid, point)
 
 	expectedEd := 5.632051 //expected value
 	epsilon := .000001
@@ -40,7 +37,7 @@ func BenchmarkEuclidDist(b *testing.B) {
 	centroid := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
 	point := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
     for i := 0; i < b.N; i++ {
-		_, _ = ed.CalcDist(centroid, point)	
+		_ = ed.CalcDist(centroid, point)	
     }
 }
 
@@ -52,10 +49,7 @@ func TestManhattanDist(t *testing.T) {
 	a := matrix.MakeDenseMatrix([]float64{4.6, 9.5}, rows, columns)
 	b := matrix.MakeDenseMatrix([]float64{3.0, 4.1}, rows, columns)
 	
-	calcMd, err := md.CalcDist(a, b)
-	if err != nil {
-		t.Errorf("ManhattandDist: returned an error.  err=%v", err)
-	}
+	calcMd := md.CalcDist(a, b)
 	
 	// 1.6 + 5.4 = 7.0
 	if calcMd != float64(7.0) {
