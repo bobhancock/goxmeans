@@ -312,3 +312,22 @@ func TestPointProb(t *testing.T) {
 		t.Errorf("TestPointProb: expected %f but received %f.  The difference %f exceeds epsilon %f", E, pp, diff, epsilon)
 	}
 }
+
+func TestLogLikeli(t *testing.T) {
+	// TODO In Progress
+	// load test set
+	// get mean
+	// get variance
+	R := 1000  // |D| = 1000
+	K := 5.0  // 5 clusters
+	Rn := []float64{100, 204, 456, 182, 58} // points in each cluster
+	M := 2.0 // Dimensions
+	V := 20.000000 // TODO needs to be caluclate for D
+
+	ll := loglikeli(R, M, V, K, Rn)
+	fmt.Printf("ll=%f\n", ll)
+}
+
+func TestBIC(t *testing.T) {
+//	fmt.Println("Coming soon.")
+}

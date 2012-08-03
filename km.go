@@ -1,7 +1,14 @@
 /*
  Package goxmeans implements a library for the xmeans algorithm.
-
+ 
  See Dan Pelleg and Andrew Moore - X-means: Extending K-means with Efficient Estimation of the Number of Clusters. 
+
+ i = the index of the centroid which is closest to the i-th point.
+ D = the input set of points
+ Di is a subset of D and is the set of points that have mu_i as their closest centroid.
+ R = |D|
+ Ri = |Di|
+ M = number of dimensions assuming spherical Gaussians.
 */
 package goxmeans
 
@@ -539,13 +546,27 @@ func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 // mean(i) =  the mean distance between all points in Dn and a centroid. 
 //
 // P(x_i) = [ (Ri / R) * (1 / (sqrt(2 * Pi) * stddev^M) ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
+//
+// This is just the probability that a point exists (Ri / R) times the normal, or Gaussian,  distribution 
+// for the number of dimensions.
 func pointProb(R, Ri, M, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
+	exists := float64(Ri / R)
+	//fmt.Printf("term1=%f\n", term1)
+
+	normdist := normDist(M, V, point, mean, measurer)
+	prob := exists * normdist
+	return prob
+}
+
+// nomrDist calculates the normal distribution for the number of dimesions in a spherical Gaussian.
+//
+// M = # of dimensions
+// V = variance of Dn
+// mean(i) =  the mean distance between all points in Dn and a centroid. 
+func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) float64 {
 	dist := measurer.CalcDist(point, mean)
 	//fmt.Printf("dist=%f\n", dist)
 	stddev := math.Sqrt(V)
-
-	term1 := float64(Ri / R)
-	//fmt.Printf("term1=%f\n", term1)
 
 	sqrt2pi := math.Sqrt(2.0 * math.Pi)
 	//fmt.Printf("sqrt2pi=%f\n", sqrt2pi)
@@ -559,11 +580,9 @@ func pointProb(R, Ri, M, V float64, point, mean *matrix.DenseMatrix, measurer ma
 	exp := -(1.0/(2.0 * V)) * math.Abs(dist)
 	//fmt.Printf("exp=%f\n",exp)
 
-	term2 := math.Pow(base, exp)
+	normdist := math.Pow(base, exp)
 	//fmt.Printf("term2=%f\n", term2)
-
-	prob := term1 * term2
-	return prob
+	return normdist
 }
 
 // loglikeli is the log likelihood estimate of the data taken at the maximum
@@ -581,18 +600,29 @@ func pointProb(R, Ri, M, V float64, point, mean *matrix.DenseMatrix, measurer ma
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
 // N.B. When applying this to D, then R = Rn.  When bisecting, R refers to the original,
-// or parent cluster, Rn is a member of the set {R_0, R_1} the two child clusters.
-func loglikeli(R, M, V, K float64, Rn []float64) (float64) {
-	t1 := R * math.Log(R)
-	t2 := (R * M) / math.Log(2.0 * math.Pi * V)
-	t3 := (1 / 2.0) * (R - K)
-	ts := -t1 - t2 - t3
+// or parent cluster, Rn is a member of the clusers {R_0, R_1} the two child clusters.
+//
+// Refer to Not on Bayesian Information Criterion Calculation equation 23.
+func loglikeli(R, M, V, K float64, Rn []float64) float64 {
+	t2 := R * math.Log(R)
+	fmt.Printf("t2=%f\n", t2)
+
+	t3 := ((R * M) / 2)  * math.Log(2.0 * math.Pi * V)
+	fmt.Printf("t3=%f\n",t3)
+
+	t4 := (1 / 2.0) * (R - K)
+	fmt.Printf("t4=%f\n", t4)
+
+	ts := t2 - t3 - t4
+	fmt.Printf("ts=%f\n", ts)
 
 	lD := float64(0)
 	for n := 0; n < int(K); n++ {
-		t0 := Rn[n] * math.Log(Rn[n])
-		s := t0 - ts
+		t1 := Rn[n] * math.Log(Rn[n])
+		fmt.Printf("t1_%d=%f\n", n, t1)
+		s := t1 - ts
 		lD += s
+		fmt.Printf("lD_n=%f\n", lD)
 	}
 	return lD
 }
