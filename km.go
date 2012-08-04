@@ -162,7 +162,7 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 }
 
 // Needs comments
-	func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
@@ -509,24 +509,24 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 //
 // variance = 	(1 / (R - K) * \sigma for all i  (x_i - mean_(i))^2
 // where i indexes the individual points
-func variance(points, mean *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) (float64, error) {
+func variance(points, mean *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) float64 {
 	r, _ := points.GetSize()
-	R := int(r)
+	R := float64(r)
 	
 	// Sum over all points (point_i - mean(i))^2
 	sum := float64(0)
-	for i := 0; i < R; i++ {
+	for i := 0; i < r; i++ {
 		p := points.GetRowVector(i)
 		dist := measurer.CalcDist(mean, p)
 		sum += math.Pow(dist, 2) 
 	}
 	variance := float64((1 / (R - K))) * sum
 
-	return variance, nil
+	return variance
 }
 
-// clusterMean calculates the mean between all points in a cluster and a centroid.
-func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
+// clusterMean calculates the mean of all points in a cluster
+/*func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 	R, cols:= points.GetSize()
 	dist := matrix.Zeros(R, cols)
 
@@ -535,7 +535,7 @@ func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
 		dist.SetRowVector(diff, i)
 	}
 	return dist.MeanCols()
-}
+}*/
 
 // pointProb calculates the probability of an individual point.
 //
@@ -602,12 +602,12 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // N.B. When applying this to D, then R = Rn.  When bisecting, R refers to the original,
 // or parent cluster, Rn is a member of the clusers {R_0, R_1} the two child clusters.
 //
-// Refer to Not on Bayesian Information Criterion Calculation equation 23.
-func loglikeli(R, M, V, K float64, Rn []float64) float64 {
+// Refer to Note on Bayesian Information Criterion Calculation equation 23.
+func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 	t2 := R * math.Log(R)
 	fmt.Printf("t2=%f\n", t2)
 
-	t3 := ((R * M) / 2)  * math.Log(2.0 * math.Pi * V)
+	t3 := ((R * M) / 2)  * math.Log(2.0 * math.Pi * variance)
 	fmt.Printf("t3=%f\n",t3)
 
 	t4 := (1 / 2.0) * (R - K)
