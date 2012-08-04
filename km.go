@@ -525,18 +525,6 @@ func variance(points, mean *matrix.DenseMatrix, K float64, measurer matutil.Vect
 	return variance
 }
 
-// clusterMean calculates the mean of all points in a cluster
-/*func modelMean(points, centroid *matrix.DenseMatrix) *matrix.DenseMatrix {
-	R, cols:= points.GetSize()
-	dist := matrix.Zeros(R, cols)
-
-	for i := 0; i < R; i++ {
-		diff := matrix.Difference(centroid, points.GetRowVector(i))
-		dist.SetRowVector(diff, i)
-	}
-	return dist.MeanCols()
-}*/
-
 // pointProb calculates the probability of an individual point.
 //
 // R = |D|
@@ -617,7 +605,7 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 	fmt.Printf("ts=%f\n", ts)
 
 	lD := float64(0)
-	for n := 0; n < int(K); n++ {
+	for n := 0; n < int(len(Rn)); n++ {
 		t1 := Rn[n] * math.Log(Rn[n])
 		fmt.Printf("t1_%d=%f\n", n, t1)
 		s := t1 - ts

@@ -264,22 +264,13 @@ func TestVariance(t *testing.T) {
 
 	v := variance(points, mean, 1, ed)
 	
-	E := 20.000000
+	E := 4.000000
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(v - na) 
 
 	if diff > epsilon {
 		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
-	}
-}
-
-func TestModelMean(t *testing.T) {
-	points := matrix.MakeDenseMatrix([]float64{3,5,5,7}, 2,2)
-//	centroid := matrix.MakeDenseMatrix([]float64{10, 14}, 1,2)
-	m :=points.MeanCols()
-	if m.Get(0,0) != 6 || m.Get(0,1) != 8 {
-		t.Errorf("TestModelMean: expected [2, 1.5] but received %v.", m)
 	}
 }
 
@@ -329,7 +320,6 @@ func TestLogLikeli(t *testing.T) {
 	mean := D.MeanCols()
 	V := variance(D, mean, K, ed)
 	
-	//loglikeli(R, M, V, K float64, Rn []float64) float64 {
 	Rn := []float64{R}
 	ll := loglikeli(R, M, V, K, Rn)
 	fmt.Printf("ll=%f\n", ll)
