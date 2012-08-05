@@ -311,12 +311,12 @@ func TestLogLikeli(t *testing.T) {
 		t.Errorf("TestLogLikeli: Load returned err=%s.", err)
 	}
 
+	var ed matutil.EuclidDist
 	r, _ := D.GetSize()
 	R := float64(r)
 	mean := D.MeanCols()
 	V := variance(D, mean, K, ed)
 	Rn := []float64{R}
-	var ed matutil.EuclidDist
 
 	ll := loglikeli(R, M, V, K, Rn)
 	fmt.Printf("ll=%f\n", ll)

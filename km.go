@@ -97,7 +97,6 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 			return z, errors.New(fmt.Sprintf("means.Load: reading linenum %d: %v", linenum, err))
 		}
 
-		linenum++
 		l1 := strings.TrimRight(line, "\n")
 		l := strings.Split(l1, "\t")
 		// If each line does not have the same number of columns then error
@@ -112,6 +111,8 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		if len(l) < 2 {
 			return z, errors.New(fmt.Sprintf("Load(): linenum %d has only %d elements", linenum, len(line)))
 		}
+
+		linenum++
 
 		// Convert the strings to  float64 and build up the slice t by appending.
 		t := make([]float64, 1)
