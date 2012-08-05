@@ -38,15 +38,6 @@ func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) float64 {
 	return math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
 }
 
-// TODO Comments
-// TODO Put in gomatrix lib
-func SetRowVector(target, vector *matrix.DenseMatrix, row int) {
-	c0 := vector.Get(0,0)
-	c1 := vector.Get(0,1)
-	target.Set(row, 0, c0)
-	target.Set(row, 1, c1)
-}
-
 // GetBoundaries returns the max and min x and y values for a dense matrix
 // of shape m x 2.
 func GetBoundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {

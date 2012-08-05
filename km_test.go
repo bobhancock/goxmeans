@@ -303,9 +303,6 @@ func TestPointProb(t *testing.T) {
 
 func TestLogLikeli(t *testing.T) {
 	// TODO In Progress
-	// load test set
-	// get mean
-	// get variance
 	K := 5.0  // 5 clusters
 	M := 2.0 // Dimensions
 
@@ -313,14 +310,14 @@ func TestLogLikeli(t *testing.T) {
 	if err != nil {
 		t.Errorf("TestLogLikeli: Load returned err=%s.", err)
 	}
+
 	r, _ := D.GetSize()
 	R := float64(r)
-	
-	var ed matutil.EuclidDist
 	mean := D.MeanCols()
 	V := variance(D, mean, K, ed)
-	
 	Rn := []float64{R}
+	var ed matutil.EuclidDist
+
 	ll := loglikeli(R, M, V, K, Rn)
 	fmt.Printf("ll=%f\n", ll)
 }

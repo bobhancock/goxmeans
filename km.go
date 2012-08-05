@@ -68,66 +68,70 @@ type EllipseCentroids struct {
 // Assume last column is the target.
 // For now, we limit ourselves to two columns
 func Load(fname string) (*matrix.DenseMatrix, error) {
-	datamatrix := matrix.Zeros(1, 1)
-	data := make([]float64, 2048)
-	idx := 0
+	z := matrix.Zeros(1,1)
 
 	fp, err := os.Open(fname)
 	if err != nil {
-		return datamatrix, err
+		return z, err
 	}
 	defer fp.Close()
 
+	data := make([]float64, 0)
+	cols := 0
 	r := bufio.NewReader(fp)
-	linenum := 1
+	linenum := 0
 	eof := false
+
 	for !eof {
 		var line string
 		var buf []byte
 //		line, err := r.ReadString('\n')
 		buf , _, err := r.ReadLine()
 		line = string(buf)
-	//	fmt.Printf("linenum=%d buf=%v line=%v\n",linenum,buf, line)
 
 		if err == io.EOF {
 			err = nil
 			eof = true
 			break
 		} else if err != nil {
-			return datamatrix, errors.New(fmt.Sprintf("means.Load: reading linenum %d: %v", linenum, err))
+			return z, errors.New(fmt.Sprintf("means.Load: reading linenum %d: %v", linenum, err))
 		}
 
 		linenum++
 		l1 := strings.TrimRight(line, "\n")
 		l := strings.Split(l1, "\t")
+		// If each line does not have the same number of columns then error
+		if linenum == 0 {
+			cols = len(l)
+		}
+
+		if len(l) != cols {
+			return z, errors.New(fmt.Sprintf("Load(): linenum %d has %d columns.  It should have %d columns.", linenum, len(line), cols))
+		}	
 
 		if len(l) < 2 {
-			return datamatrix, errors.New(fmt.Sprintf("means.Load: linenum %d has only %d elements", linenum, len(line)))
+			return z, errors.New(fmt.Sprintf("Load(): linenum %d has only %d elements", linenum, len(line)))
 		}
 
-		// for now assume 2 dimensions only
-		f0, err := Atof64(string(l[0]))
-		if err != nil {
-			return datamatrix, errors.New(fmt.Sprintf("means.Load: cannot convert f0 %s to float64.", l[0]))
-		}
-		f1, err := Atof64(string(l[1]))
+		// Convert the strings to  float64 and build up the slice t by appending.
+		t := make([]float64, 1)
 
-		if err != nil {
-			return datamatrix, errors.New(fmt.Sprintf("means.Load: cannot convert f1 %s to float64.",l[1]))
+		for i, v := range l {
+			f, err := Atof64(string(v))
+			if err != nil {
+				return z, errors.New(fmt.Sprintf("means.Load: cannot convert f0 %s to float64.", v))
+			}
+			if i == 0 {
+				t[0] = f
+			} else {
+				t = append(t, f)
+			}
+			
 		}
-
-		if linenum >= len(data) {
-			data = append(data, f0, f1)
-		} else {
-			data[idx] = f0
-			idx++
-			data[idx] = f1
-			idx++
-		}
+		data = append(data, t...)
 	}
-	numcols := 2
-	datamatrix = matrix.MakeDenseMatrix(data, linenum - 1, numcols)
-	return datamatrix, nil
+	mat := matrix.MakeDenseMatrix(data, linenum, cols)
+	return mat, nil
 }
 
 // chooseCentroids picks random centroids based on the min and max values in the matrix
@@ -177,7 +181,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 	}
 	i := 0
 	for idx, _ := range chosenIdxs {
-		matutil.SetRowVector(centroids, mat.GetRowVector(idx).Copy(), i)
+		centroids.SetRowVector(mat.GetRowVector(idx).Copy(), i)
 		i += 1
 	}
 	return centroids, nil
@@ -553,7 +557,7 @@ func pointProb(R, Ri, M, V float64, point, mean *matrix.DenseMatrix, measurer ma
 // mean(i) =  the mean distance between all points in Dn and a centroid. 
 func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) float64 {
 	dist := measurer.CalcDist(point, mean)
-	//fmt.Printf("dist=%f\n", dist)
+ 	//fmt.Printf("dist=%f\n", dist)
 	stddev := math.Sqrt(V)
 
 	sqrt2pi := math.Sqrt(2.0 * math.Pi)
@@ -580,7 +584,7 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // R = |D|
 // R_n = |D_n|
 // M = # of dimensions
-// V = unbiased V of D
+// V = unbiased variance of D
 // K = number of clusters
 //
 // l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
@@ -590,29 +594,29 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // N.B. When applying this to D, then R = Rn.  When bisecting, R refers to the original,
 // or parent cluster, Rn is a member of the clusers {R_0, R_1} the two child clusters.
 //
-// Refer to Note on Bayesian Information Criterion Calculation equation 23.
+// Refer to Notes on Bayesian Information Criterion Calculation equation 23.
 func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 	t2 := R * math.Log(R)
-	fmt.Printf("t2=%f\n", t2)
+//	fmt.Printf("t2=%f\n", t2)
 
-	t3 := ((R * M) / 2)  * math.Log(2.0 * math.Pi * variance)
-	fmt.Printf("t3=%f\n",t3)
+	t3 := ((R * M) / 2.0)  * math.Log(2.0 * math.Pi * variance)
+//	fmt.Printf("t3=%f\n",t3)
 
 	t4 := (1 / 2.0) * (R - K)
-	fmt.Printf("t4=%f\n", t4)
+//	fmt.Printf("t4=%f\n", t4)
 
 	ts := t2 - t3 - t4
-	fmt.Printf("ts=%f\n", ts)
+//	fmt.Printf("ts=%f\n", ts)
 
-	lD := float64(0)
+	ll := float64(0)
 	for n := 0; n < int(len(Rn)); n++ {
 		t1 := Rn[n] * math.Log(Rn[n])
-		fmt.Printf("t1_%d=%f\n", n, t1)
+//		fmt.Printf("t1_%d=%f\n", n, t1)
 		s := t1 - ts
-		lD += s
-		fmt.Printf("lD_n=%f\n", lD)
+		ll += s
+//		fmt.Printf("lD_n=%f\n", lD)
 	}
-	return lD
+	return ll
 }
 
 
