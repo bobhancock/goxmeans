@@ -94,7 +94,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 			eof = true
 			break
 		} else if err != nil {
-			return z, errors.New(fmt.Sprintf("means.Load: reading linenum %d: %v", linenum, err))
+			return z, errors.New(fmt.Sprintf("goxmean.Load: reading linenum %d: %v", linenum, err))
 		}
 
 		l1 := strings.TrimRight(line, "\n")
@@ -120,7 +120,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		for i, v := range l {
 			f, err := Atof64(string(v))
 			if err != nil {
-				return z, errors.New(fmt.Sprintf("means.Load: cannot convert f0 %s to float64.", v))
+				return z, errors.New(fmt.Sprintf("goxmeanx.Load: cannot convert value %s to float64.", v))
 			}
 			if i == 0 {
 				t[0] = f
@@ -512,9 +512,11 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
-// variance = 	(1 / (R - K) * \sigma for all i  (x_i - mean_(i))^2
-// where i indexes the individual points
-func variance(points, mean *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) float64 {
+// variance = 	(1 / (R - K) * \sigma for all i  (x_i - mu_(i))^2
+// where i indexes the individual points.  
+// N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
+// the mean of the entire cluster.
+func variance(points, centroid *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) float64 {
 	r, _ := points.GetSize()
 	R := float64(r)
 	
@@ -522,7 +524,7 @@ func variance(points, mean *matrix.DenseMatrix, K float64, measurer matutil.Vect
 	sum := float64(0)
 	for i := 0; i < r; i++ {
 		p := points.GetRowVector(i)
-		dist := measurer.CalcDist(mean, p)
+		dist := measurer.CalcDist(centroid, p)
 		sum += math.Pow(dist, 2) 
 	}
 	variance := float64((1 / (R - K))) * sum
@@ -536,17 +538,17 @@ func variance(points, mean *matrix.DenseMatrix, K float64, measurer matutil.Vect
 // Ri = |Dn| for the cluster contining the point x_i.
 // M = # of dimensions
 // V = variance of Dn
-// mean(i) =  the mean distance between all points in Dn and a centroid. 
+// mu(i) =  the coordinates of the centroid closest to the i-th data point.
 //
 // P(x_i) = [ (Ri / R) * (1 / (sqrt(2 * Pi) * stddev^M) ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
 //
 // This is just the probability that a point exists (Ri / R) times the normal, or Gaussian,  distribution 
 // for the number of dimensions.
-func pointProb(R, Ri, M, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
+func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
 	exists := float64(Ri / R)
 	//fmt.Printf("term1=%f\n", term1)
 
-	normdist := normDist(M, V, point, mean, measurer)
+	normdist := normDist(M, V, point, mu, measurer)
 	prob := exists * normdist
 	return prob
 }
@@ -620,4 +622,17 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 	return ll
 }
 
-
+// BIC calculated the Bayesian Information Criterion or Schwarz Criterion
+// 
+// D = set of points
+// R = |D|
+// M = number of dimesions assuming a spherical Gaussians
+// p = number of parameters in Mj
+// log is the natural log
+// l(D) is the log likelihood of the data of the jth model taken at the 
+//  maximum likelihood point.
+//
+// BIC(M_j) = l_j(D) - P_j/2 * log R
+/*func BIC(lD P, R float64) float64 {
+	return lD - (P / 2) - math.Log(R)
+}*/

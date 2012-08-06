@@ -256,13 +256,12 @@ func TestVariance(t *testing.T) {
                                             5, 7},
 		2,2)
 
-//	centroid := matrix.MakeDenseMatrix([]float64{10, 14},
-//		1,2)
+	centroid := matrix.MakeDenseMatrix([]float64{4, 6},
+		1,2)
 	
-	mean := points.MeanCols()
 	var ed matutil.EuclidDist 
 
-	v := variance(points, mean, 1, ed)
+	v := variance(points, centroid, 1, ed)
 	
 	E := 4.000000
 	epsilon := .000001
@@ -322,6 +321,6 @@ func TestLogLikeli(t *testing.T) {
 	fmt.Printf("ll=%f\n", ll)
 }
 
-func TestBIC(t *testing.T) {
+/*func TestBIC(t *testing.T) {
 //	fmt.Println("Coming soon.")
-}
+}*/
