@@ -243,15 +243,14 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // 
 //
 // centroidSqErr - a kX2 matrix where the first column contains a number
-// indicating the centroid and the second column contains the minimum
-// distance between centroid and point squared.  (i.e., the squared error)
+// denoting the centroid and the second column contains the squared
+// error between a centroid and a point.
 //
 //  ____      _______
 //  | 0        38.01 | <-- Centroid 0, squared error for the coordinates in row 0 of datapoints
 //  | 1        23 .21| <-- Centroid 1, squared error for the coordinates in row 1 of datapoints
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
-//func Kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (centroidMean, 
 func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer matutil.VectorMeasurer) (centroidMean, 
     centroidSqErr *matrix.DenseMatrix, err error) {
 	//k, _ := centroids.GetSize()
