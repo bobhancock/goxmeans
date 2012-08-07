@@ -621,6 +621,15 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 	return ll
 }
 
+// numgreep returns the number of free parameters in the BIC.
+//
+// (K - 1 class probabilities) + (M * K) + 1 variance estimate.
+// Since the variance is a free paramter, identical for every cluster, it
+// counts as 1.
+func freeparams(K, M float64) float64 {
+	return (K - 1.0) + (M * K) + 1
+}
+
 // BIC calculated the Bayesian Information Criterion or Schwarz Criterion
 // 
 // D = set of points
@@ -631,7 +640,7 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 // l(D) is the log likelihood of the data of the jth model taken at the 
 //  maximum likelihood point.
 //
-// BIC(M_j) = l_j(D) - P_j/2 * log R
-/*func BIC(lD P, R float64) float64 {
-	return lD - (P / 2) - math.Log(R)
-}*/
+// BIC(M_j) = l_j(D) - freeparams/2 * log R
+func BIC(lD, freeparams, R float64) float64 {
+	return lD - (freeparams / 2) - math.Log(R)
+}
