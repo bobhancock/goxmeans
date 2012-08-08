@@ -623,6 +623,9 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 
 // numgreep returns the number of free parameters in the BIC.
 //
+// K - number of clusters
+// M - number of dimensions
+//
 // (K - 1 class probabilities) + (M * K) + 1 variance estimate.
 // Since the variance is a free paramter, identical for every cluster, it
 // counts as 1.
@@ -633,6 +636,7 @@ func freeparams(K, M float64) float64 {
 // BIC calculated the Bayesian Information Criterion or Schwarz Criterion
 // 
 // D = set of points
+
 // R = |D|
 // M = number of dimesions assuming a spherical Gaussians
 // p = number of parameters in Mj

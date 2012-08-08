@@ -318,9 +318,40 @@ func TestLogLikeli(t *testing.T) {
 	Rn := []float64{R}
 
 	ll := loglikeli(R, M, V, K, Rn)
-	fmt.Printf("ll=%f\n", ll)
+
+	E :=  422.331625
+	epsilon := .000001
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(ll - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestLoglikeli: Expected 422.331625 but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
+	}
 }
 
-/*func TestBIC(t *testing.T) {
-//	fmt.Println("Coming soon.")
-}*/
+func TestFreeparams(t *testing.T) {
+	K := 6.0
+	M := 3.0
+
+	r := freeparams(K, M)
+	if r != 24. {
+		t.Errorf("TestFreeparams: Expected 24 but received %f.", r)
+	}
+}
+
+func TestBIC(t *testing.T) {
+	K := 6.0
+	M := 3.0
+	fp := freeparams(K, M)
+	loglike := 3199.331
+	R := 1000.0
+	bic := BIC(loglike, fp, R)
+	
+	E :=  3180.423244721018
+	epsilon := .000001
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(bic - na) 
+	if diff > epsilon {
+		t.Errorf("TestBIC: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
+	}
+}
