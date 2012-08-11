@@ -4,10 +4,15 @@
  See Dan Pelleg and Andrew Moore - X-means: Extending K-means with Efficient Estimation of the Number of Clusters. 
 
  i = the index of the centroid which is closest to the i-th point.
+
  D = the input set of points
+
  Di is a subset of D and is the set of points that have mu_i as their closest centroid.
+
  R = |D|
+
  Ri = |Di|
+
  M = number of dimensions assuming spherical Gaussians.
 */
 package goxmeans
@@ -65,8 +70,6 @@ type EllipseCentroids struct {
 }
 
 // Load loads a tab delimited text file of floats into a slice.
-// Assume last column is the target.
-// For now, we limit ourselves to two columns
 func Load(fname string) (*matrix.DenseMatrix, error) {
 	z := matrix.Zeros(1,1)
 
@@ -216,44 +219,51 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 }
 
 
-// Kmeansp returns means and distance squared of the coordinates for each 
-// centroid using parallel computation.
+// Kmeansp partitions datapoints into K clusters.  This results in a partitioning of
+// the data space into Voronoi cells.  The problem ins NP-hard so here we attempt
+// to parallelize as many processes as possible to reduce the running time.
 //
-// Input values
+// 1. Place K points into the space represented by the objects that are being clustered.
+// These points represent initial group centroids.
 //
-// datapoints - a nX2 matrix of coordinates 
+// 2. Assign each object to the group that has the closest centroid.
 //
-// centroids - a kX2 matrix of coordinates for centroids.
+// 3. When all objects have been assigned, recalculate the positions of the K centroids
+// by calculating the mean of all cooridnates in a group (i.e., cluster) and making that
+// the new centroid.
 //
-// measurer - anythng that implements the matutil.VectorMeasurer interface to 
-// calculate the distance between a centroid and datapoint. (e.g., Euclidian 
-// distance)
+// 4. Repeat Steps 2 and 3 until the centroids no longer move.
 //
-// Return values
+// Return Values
 //
-// clusterMean - a kX2 matrix where the row number corresponds to the same 
-// row in the centroid matrix and the  columns are the means of the 
-// coordinates for that cluster.  i.e., the best centroids that could
-// be determined.
-//
+// centroids is K x M matrix that cotains the coordinates for the centroids.
+// The centroids are indexed by the 0 based rows of this matrix.
 //  ____      _________
-//  | 12.29   32.94 ... | <-- The mean of coordinates for centroid 0
-//  | 4.6     29.22 ... | <-- The mean of coordinates for centroid 1
+//  | 12.29   32.94 ... | <-- The coordinates for centroid 0
+//  | 4.6     29.22 ... | <-- The coordinates for centroid 1
 //  |_____    __________|
 // 
 //
-// clusterAssessment - a kX2 matrix where the first column contains a number
-// denoting the centroid and the second column contains the squared
-// error between a centroid and a point.
+// clusterAssessment is ax R x 2 matrix.  The rows have a 1:1 relationship to 
+// the rows in datapoints.  Column 0 contains the row number in centroids
+// that corresponds to the centroid for the datapoint in row i of this matrix.
+// Column 1 contains the squared error between the centroid and datapoint(i).
 //
 //  ____      _______
-//  | 0        38.01 | <-- Centroid 0, squared error for the coordinates in row 0 of datapoints
+//  | 3        38.01 | <-- Centroid 3, squared error for the coordinates in row 0 of datapoints
 //  | 1        23 .21| <-- Centroid 1, squared error for the coordinates in row 1 of datapoints
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
-func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix,
+//
+func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, 
 	*matrix.DenseMatrix, error) {
-	//k, _ := centroids.GetSize()
+/* centroids                 datapoints                clusterAssessment
+                    _____________________________________
+   ____   ______    |       ____   ____                __|__   ______
+   | ...        |   V       | ...     |               |  ...         |
+   | 3     38.1 | row 3     | 3.0  5.1| <-- row i --> |  3     32.12 |
+   |___   ______|           |____  ___|               |____    ______|
+*/
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
 	log.SetOutput(w)
