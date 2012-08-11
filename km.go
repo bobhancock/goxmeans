@@ -221,9 +221,9 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //
 // Input values
 //
-// datapoints - a kX2 matrix of R^2 coordinates 
+// datapoints - a nX2 matrix of coordinates 
 //
-// centroids - a kX2 matrix of R^2 coordinates for centroids.
+// centroids - a kX2 matrix of coordinates for centroids.
 //
 // measurer - anythng that implements the matutil.VectorMeasurer interface to 
 // calculate the distance between a centroid and datapoint. (e.g., Euclidian 
@@ -251,8 +251,8 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //  | 1        23 .21| <-- Centroid 1, squared error for the coordinates in row 1 of datapoints
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
-func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer matutil.VectorMeasurer) (centroidMean, 
-    centroidSqErr *matrix.DenseMatrix, err error) {
+func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix,
+	*matrix.DenseMatrix, error) {
 	//k, _ := centroids.GetSize()
 	fp, _ := os.Create("/var/tmp/km.log")
 	w := io.Writer(fp)
@@ -260,8 +260,8 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer 
 
 	centroids := cc.ChooseCentroids(datapoints, k)
 	numRows, numCols := datapoints.GetSize()
-	centroidSqErr = matrix.Zeros(numRows, numCols)
-	centroidMean = matrix.Zeros(k, numCols)
+	centroidSqErr := matrix.Zeros(numRows, numCols)
+	centroidMean := matrix.Zeros(k, numCols)
 
 	jobs := make(chan PairPointCentroidJob, numworkers)
 	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
@@ -283,7 +283,10 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer 
 		// d is the index that identifies a row in centroidSqErr and datapoints.
 		// Select all the rows in centroidSqErr whose first col value == c.
 		// Get the corresponding row vector from datapoints and place it in pointsInCluster.
-		matches, err :=	centroidSqErr.FiltColMap(float64(c), float64(c), 0)  //rows with c in column 0.
+		matches, err :=	centroidSqErr.FiltColMap(float64(c), float64(c), 0)  
+		// matches - a map[int]float64 where the key is the row number in source 
+		//matrix  and the value is the value in the column of the source matrix 
+		//specified by col.
 		if err != nil {
 			return centroidMean, centroidSqErr, nil
 		}
@@ -293,7 +296,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer 
 			continue
 		}
 
-		pointsInCluster := matrix.Zeros(len(matches), 2) 
+		pointsInCluster := matrix.Zeros(len(matches), numCols) 
 		for d, rownum := range matches {
 			pointsInCluster.Set(d, 0, datapoints.Get(int(rownum), 0))
 			pointsInCluster.Set(d, 1, datapoints.Get(int(rownum), 1))
@@ -302,12 +305,12 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int,cc CentroidChooser, measurer 
 		// pointsInCluster now contains all the data points for the current 
 		// centroid.  Take the mean of each of the 2 cols in pointsInCluster.
 		means := pointsInCluster.MeanCols()
-		centroidMean.Set(c, 0, means.Get(0,0))
-		centroidMean.Set(c, 1, means.Get(0,1))
+		for i := 0; i < numCols; i++ {
+			centroidMean.Set(c, i, means.Get(0,i))
+		}
+	return centroidMean, centroidSqErr, nil
 	}
-	return 
 }
-
 // CentroidPoint stores the row number in the centroids matrix and
 // the distance squared between the centroid.
 type CentroidPoint struct {
@@ -511,11 +514,17 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
+// centroid is an nX2 matrix where col0 denotes the centroid n {0...n} and 
+// col1 denotes the squared distance (x_i - closest_centroid)^2.  The row number
+// in this matrix indexes the row in the points matrix.  So, row 10 in this matrix
+// gives you the centroid number and squared distance between this centroid and 
+// the point in row 10 of the points matrix.
+//
 // variance = 	(1 / (R - K) * \sigma for all i  (x_i - mu_(i))^2
 // where i indexes the individual points.  
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
-func variance(points, centroid *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) float64 {
+func variance(points, centroids *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) float64 {
 	r, _ := points.GetSize()
 	R := float64(r)
 	
@@ -523,6 +532,7 @@ func variance(points, centroid *matrix.DenseMatrix, K float64, measurer matutil.
 	sum := float64(0)
 	for i := 0; i < r; i++ {
 		p := points.GetRowVector(i)
+		sumse := centroidSE.Get(i, 1)
 		dist := measurer.CalcDist(centroid, p)
 		sum += math.Pow(dist, 2) 
 	}
