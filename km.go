@@ -220,7 +220,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 
 
 // Kmeansp partitions datapoints into K clusters.  This results in a partitioning of
-// the data space into Voronoi cells.  The problem ins NP-hard so here we attempt
+// the data space into Voronoi cells.  The problem is NP-hard so here we attempt
 // to parallelize as many processes as possible to reduce the running time.
 //
 // 1. Place K points into the space represented by the objects that are being clustered.
@@ -271,7 +271,6 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 	centroids := cc.ChooseCentroids(datapoints, k)
 	numRows, numCols := datapoints.GetSize()
 	clusterAssessment := matrix.Zeros(numRows, numCols)
-	clusterMean := matrix.Zeros(k, numCols)
 
 	jobs := make(chan PairPointCentroidJob, numworkers)
 	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
@@ -297,7 +296,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 			//matrix  and the value is the value in the column of the source matrix 
 			//specified by col.
 			if err != nil {
-				return clusterMean, clusterAssessment, err
+				return matrix.Zeros(k, numCols), clusterAssessment, err
 			}
 			// It is possible that some centroids could not have any points, so there 
 			// may not be any matches in the first column of clusterAssessment.
@@ -408,15 +407,24 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 }
 
 // Kmeansbi bisects a given cluster and determines which centroids give the lowest error.
+//
 // Take the points in a cluster
+//
 // While the number of cluster < k
-//    for every cluster
-//        measure total error
-//        cacl kmeansp with k=2 on a given cluster
-//        measure total error after kmeansp split
-//    choose the cluster split with the lowest SSE
-//    commit the chosen split
-func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (matCentroidlist, clusterAssessment *matrix.DenseMatrix, err error) {
+//
+// for every cluster {
+//
+// measure total error
+//
+// calc kmeansp with k=2 on a given cluster
+//
+// measure total error after kmeansp split
+//
+// choose the cluster split with the lowest SSE }
+//
+// commit the chosen split
+func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (matCentroidlist, 
+clusterAssessment *matrix.DenseMatrix, err error) {
 	numRows, numCols := datapoints.GetSize()
 	clusterAssessment = matrix.Zeros(numRows, numCols)
 	matCentroidlist = matrix.Zeros(k, numCols)
@@ -525,24 +533,19 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 	return matCentroidlist, clusterAssessment, nil
 }
 
+
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
-// D = the set of all data points.
-// R = |D|
-// M = number of dimensions
-// i = indexes a specific data point.  i is the row number in the ponts and
-// clusterAssessment matrices.
+// points = an R x M matrix of all data point coordinates.
 //
-// points is an R x M matrix of all data point coordinates.
-//
-// clusterAssessment is an R x 2 matrix.  Column 0 contains the index {0...K} of
+// clusterAssessment =  R x 2 matrix.  Column 0 contains the index {0...K} of
 // a centroid.  Column 1 contains (datapoint_i - mu(i))^2 
 // 
-// centroids is a K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
-// Columns 1...M contain the centroid coordinates.
+// centroids =  K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
+// Columns 1...M contain the centroid coordinates.  (See Kmeansp() for an example.)
 //
-// variance = 	(1 / (R - K) * \sigma for all i  (datapoint_i - mu_(i))^2
+// variance = (1 / (R - K) * \sigma for all i  (datapoint_i - mu_(i))^2
 // where i indexes the individual points.  
 //
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
@@ -666,7 +669,7 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 	return ll
 }
 
-// numgreep returns the number of free parameters in the BIC.
+// freeparams returns the number of free parameters in the BIC.
 //
 // K - number of clusters
 // M - number of dimensions
@@ -678,16 +681,20 @@ func freeparams(K, M float64) float64 {
 	return (K - 1.0) + (M * K) + 1
 }
 
-// BIC calculated the Bayesian Information Criterion or Schwarz Criterion
+// BIC calculates the Bayesian Information Criterion or Schwarz Criterion
 // 
 // D = set of points
-
+//
 // R = |D|
+//
 // M = number of dimesions assuming a spherical Gaussians
+//
 // p = number of parameters in Mj
-// log is the natural log
-// l(D) is the log likelihood of the data of the jth model taken at the 
-//  maximum likelihood point.
+//
+// log = the natural log
+//
+// l(D) = the log likelihood of the data of the jth model taken at the 
+// maximum likelihood point.
 //
 // BIC(M_j) = l_j(D) - freeparams/2 * log R
 func BIC(lD, freeparams, R float64) float64 {
