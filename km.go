@@ -518,32 +518,52 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
-// centroid is an nX2 matrix where col0 denotes the centroid n {0...n} and 
-// col1 denotes the squared distance (x_i - closest_centroid)^2.  The row number
-// in this matrix indexes the row in the points matrix.  So, row 10 in this matrix
-// gives you the centroid number and squared distance between this centroid and 
-// the point in row 10 of the points matrix.
+// D = the set of all data points.
+// R = |D|
+// M = number of dimensions
+// i = indexes a specific data point.  i is the row number in the ponts and
+// clusterAssessment matrices.
 //
-// variance = 	(1 / (R - K) * \sigma for all i  (x_i - mu_(i))^2
+// points is an R x M matrix of all data point coordinates.
+//
+// clusterAssessment is an R x 2 matrix.  Column 0 contains the index {0...K} of
+// a centroid.  Column 1 contains (datapoint_i - mu(i))^2 
+// 
+// centroids is a K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
+// Columns 1...M contain the centroid coordinates.
+//
+// variance = 	(1 / (R - K) * \sigma for all i  (datapoint_i - mu_(i))^2
 // where i indexes the individual points.  
+//
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
-// TODO: START HERE
-func variance(points, centroids *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) float64 {
-	r, _ := points.GetSize()
-	R := float64(r)
+func variance(points, clusterAssessment, centroids *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) (float64, error) {
+	rows, M := points.GetSize()
+	R := float64(rows)
 	
 	// Sum over all points (point_i - mean(i))^2
 	sum := float64(0)
-	for i := 0; i < r; i++ {
+	for i := 0; i < rows; i++ {
 		p := points.GetRowVector(i)
-		sumse := centroidSE.Get(i, 1)
-		dist := measurer.CalcDist(centroid, p)
+		// Find it's centroid
+		centindex := clusterAssessment.Get(i, 0)
+		centRowVector, err := centroids.FiltCol(centindex, centindex, 0)
+		if err != nil {
+			return sum, errors.New(fmt.Sprintf("goxmeans:variance error from centroids.FiltCol = %v\n", err))
+		}
+
+		// coordinates are cols 1...M
+		centCoords := matrix.Zeros(1, M)
+		for j := 0; j <= M; j++ {
+			centCoords.Set(1, j, centRowVector.Get(1, j+1))
+		}
+
+		dist := measurer.CalcDist(centCoords, p)
 		sum += math.Pow(dist, 2) 
 	}
 	variance := float64((1 / (R - K))) * sum
 
-	return variance
+	return variance, nil
 }
 
 // pointProb calculates the probability of an individual point.
