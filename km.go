@@ -154,8 +154,8 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids
 }
 
-// Needs comments
-	func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
+// DataCentroids picks k distinct points from the dataset
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
@@ -176,7 +176,7 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids, nil
 }
 
-// Needs comments
+// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
@@ -211,7 +211,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //
 // datapoints - a kX2 matrix of R^2 coordinates 
 //
-// centroids - a kX2 matrix of R^2 coordinates for centroids.
+// cc - an implementation of the CentroidChooser interface
 //
 // measurer - anythng that implements the matutil.VectorMeasurer interface to 
 // calculate the distance between a centroid and datapoint. (e.g., Euclidian 
@@ -230,9 +230,10 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //  |_____    ______|
 // 
 //
-// centroidSqErr - a kX2 matrix where the first column contains a number
+// centroidSqErr - a mX2 matrix where the first column contains a number
 // indicating the centroid and the second column contains the minimum
 // distance between centroid and point squared.  (i.e., the squared error)
+// The row corresponds to the row in the original data matrix
 //
 //  ____      _______
 //  | 0        38.01 | <-- Centroid 0, squared error for the coordinates in row 0 of datapoints
@@ -443,7 +444,7 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
             // the clustering is for this cluster.
 			sseSplit := splitClusterAssignment.SumCol(1)
 			// Calculate the SSE for the original cluster
-			sqerr, err := clusterAssignment.FiltCol(float64(0), math.Inf(1), 0)
+			sqerr, err := clusterAssignment.FiltCol(float64(0), math.Inf(1), 0) // TODO - why do a FiltCol that just takes everything? This seems like it should be pointsCurCluster instead. -df
 			if err != nil {
 				return matCentroidlist, clusterAssignment, err
 			}
@@ -451,7 +452,8 @@ func Kmeansbi(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measure
 
 			// TODO: Pre-BCI is this the best way to evaluate?
 			if sseSplit + sseNotSplit < lowestSSE {
-				bestCentroidToSplit = 1
+				bestCentroidToSplit = 1 // TODO - is this meant to be i?
+				// TODO - shouldn't we also be updating lowestSSE here?
 				bestNewCentroids = matrix.MakeDenseCopy(centroids)
 				bestClusterAssignment =  matrix.MakeDenseCopy(splitClusterAssignment)
 			}
