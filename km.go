@@ -496,8 +496,6 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, 
 // for the number of dimensions.
 func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
 	exists := float64(Ri / R)
-	//fmt.Printf("term1=%f\n", term1)
-
 	normdist := normDist(M, V, point, mu, measurer)
 	prob := exists * normdist
 	return prob
@@ -510,23 +508,13 @@ func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matu
 // mean(i) =  the mean distance between all points in Dn and a centroid. 
 func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) float64 {
 	dist := measurer.CalcDist(point, mean)
- 	//fmt.Printf("dist=%f\n", dist)
 	stddev := math.Sqrt(V)
-
 	sqrt2pi := math.Sqrt(2.0 * math.Pi)
-	//fmt.Printf("sqrt2pi=%f\n", sqrt2pi)
-
 	stddevM := math.Pow(stddev, M)
-	//fmt.Printf("stddevM=%f\n", stddevM)
-
 	base := 1 / (sqrt2pi * stddevM)
-	//fmt.Printf("base=%f\n", base)
-
 	exp := -(1.0/(2.0 * V)) * math.Abs(dist)
-	//fmt.Printf("exp=%f\n",exp)
-
 	normdist := math.Pow(base, exp)
-	//fmt.Printf("term2=%f\n", term2)
+
 	return normdist
 }
 
@@ -540,8 +528,6 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // V = unbiased variance of D
 // K = number of clusters
 //
-// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)]
-//
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
 // N.B. When applying this to a model with no parent cluster as in evaluating 
@@ -550,26 +536,20 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // the set {R_0, R_1} the two child clusters.
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation 23.
+//
+// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)]
+// IN PROGRESS
 func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
 	t2 := float64(R) * math.Log(float64(R))
-//	fmt.Printf("t2=%f\n", t2)
-
 	t3 := ((float64(R) * float64(M)) / 2.0)  * math.Log(2.0 * math.Pi * variance)
-//	fmt.Printf("t3=%f\n",t3)
-
 	t4 := (1 / 2.0) * (float64(R) - float64(K))
-//	fmt.Printf("t4=%f\n", t4)
-
 	ts := t2 - t3 - t4
-//	fmt.Printf("ts=%f\n", ts)
 
 	ll := float64(0)
 	for n := 0; n < int(len(Rn)); n++ {
 		t1 := Rn[n] * math.Log(Rn[n])
-//		fmt.Printf("t1_%d=%f\n", n, t1)
 		s := t1 - ts
 		ll += s
-//		fmt.Printf("lD_n=%f\n", lD)
 	}
 	return ll
 }
@@ -579,9 +559,10 @@ func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
 // K - number of clusters
 // M - number of dimensions
 //
-// (K - 1 class probabilities) + (M * K) + 1 variance estimate.
 // Since the variance is a free paramter, identical for every cluster, it
 // counts as 1.
+//
+// (K - 1 class probabilities) + (M * K) + 1 variance estimate.
 func freeparams(K, M int) int {
 	return (K - 1) + (M * K) + 1
 }
@@ -610,7 +591,6 @@ func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measu
 
 	loglikelihood := loglikeli(variance, K, M, R, Rn)
 	freeparams := freeparams(K, M)
-
 	bic := loglikelihood - (float64(freeparams) / 2.0) - math.Log(float64(R))
 
 	return bic, nil
