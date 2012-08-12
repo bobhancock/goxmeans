@@ -5,11 +5,28 @@ import (
 //	"code.google.com/p/gomatrix/matrix"
 	"fmt"
 	"os"
-	"math"
+//	"math"
 	"testing"
 	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
 )
+
+var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.275154,2.957587,
+	-3.344465,2.603513,
+	0.355083,-3.376585,
+	1.852435,3.547351,
+	-2.078973,2.552013,
+	-0.993756,-0.884433,
+	2.682252,4.007573,
+	-3.087776,2.878713,
+	-1.565978,-1.256985,
+	2.441611,0.444826,
+	103.29,209.6594,
+	125.93,230.3988}, 12, 2)
+
+var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 46.57890839,   11.95938243,
+    67.54513486,  134.19858589,
+    81.16283573,   95.83181046}, 3, 2)
 
 func TestAtof64Invalid(t *testing.T) {
 	s := "xyz"
@@ -77,7 +94,8 @@ func TestValidReturnLoad(t *testing.T) {
 	}
 }
 
-/*func TestRandCentroids(t *testing.T) {
+/* Test fails
+func TestRandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
 	k := 2
@@ -92,7 +110,8 @@ func TestValidReturnLoad(t *testing.T) {
 			t.Errorf("Returned centroid was %dx%d instead of %dx%d", r, c, rows, cols)
 		}
 	}
-}*/
+}
+*/
 
 
 func TestComputeCentroid(t *testing.T) {
@@ -201,42 +220,55 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	}
 }
 
-func TestProcessPairPointToCentroidResults(t *testing.T) {
-	r := 4
-	c := 2
-	dataPoints := matrix.Zeros(r, c)
-	centroidSqDist := matrix.Zeros(r, c)
-	centroids := matrix.Zeros(r, c)
+func TestAssessClusters(t *testing.T) {
+	r, c := DATAPOINTS.GetSize()
+	clusterAssessment := matrix.Zeros(r, c)
 
 	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
 	var md matutil.ManhattanDist
-	go addPairPointCentroidJobs(jobs, dataPoints,  centroids, centroidSqDist, md, results)
+	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, clusterAssessment, md, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
 
-    //TODO check deterministic results of centroidDistSq
-     processPairPointToCentroidResults(centroidSqDist, results)
+    //TODO check deterministic results of clusterAssessment
+    clusterChanged := assessClusters(clusterAssessment, results)
+	if clusterChanged != true {
+		t.Errorf("TestAssessClusters: clusterChanged=%b and should be true.", clusterChanged)
+	}
 
+
+// clusterAssessment should be:
+//           {0,  2735.870542,
+//            0,  3514.028629,
+//           0,  3789.608092,
+//            0,  2823.700695,
+//            0,  3371.573353,
+//            0,  3650.151034,
+//            0,  2688.263408,
+//            0,  3451.251581,
+//           0,   3765.20347,
+//            0,  3097.128834,
+//            1, 12366.703097,
+//            1, 23896.546727}
+
+
+	if clusterAssessment.Get(9, 0) != 0 || clusterAssessment.Get(10, 0) != 1 {
+		t.Errorf("TestAssessClusters: rows 9 and 10 should have 0 and 1 in column 0, but received %v", clusterAssessment)
+	}
 }
 
-
+/* TODO rewrite for new version
 func TestKmeansbi(t *testing.T) {
-	dataPoints, err := Load("./testSetSmall.txt")
-	if err != nil {
-		t.Errorf("Load returned: %v", err)
-		return
-	}
-	
 	var ed matutil.EuclidDist
 	var cc RandCentroids
 
-	matCentroidlist, clusterAssignment, err := Kmeansp(dataPoints, 4, cc, ed)
+	matCentroidlist, clusterAssignment, err := Kmeansp(DATAPOINTS, 4, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
@@ -247,21 +279,33 @@ func TestKmeansbi(t *testing.T) {
 	}
 
 	if c, d := clusterAssignment.GetSize(); c == 0 || d == 0 {
-		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
+		t.Errorf("Kmeans clusterAssessment is of size %d, %d.", c,d)
 	}
+	// TODO deterministic test
 }
-  
+*/
+/*  
 func TestVariance(t *testing.T) {
-	points := matrix.MakeDenseMatrix([]float64{3, 5, 
-                                            5, 7},
-		2,2)
+	numRows, numCols := DATAPOINTS.GetSize()
+	clusterAssessment := matrix.Zeros(numRows, numCols)
 
-	centroid := matrix.MakeDenseMatrix([]float64{4, 6},
-		1,2)
-	
-	var ed matutil.EuclidDist 
+	jobs := make(chan PairPointCentroidJob, numworkers)
+	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
+	done := make(chan int, numworkers)
+	var measurer matutil.EuclidDist 
 
-	v := variance(points, centroid, 1, ed)
+	go addPairPointCentroidJobs(jobs, DATAPOINTS, clusterAssessment, CENTROIDS, measurer, results)
+	for i := 0; i < numworkers; i++ {
+		go doPairPointCentroidJobs(done, jobs)
+	}
+	go awaitPairPointCentroidCompletion(done, results)
+	b := assessClusters(clusterAssessment, results) // This blocks so that all the results can be processed
+	fmt.Println(b, clusterAssessment)
+
+	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, measurer)
+	if err != nil {
+		t.Errorf("TestVariance: err = %v", err)
+	}
 	
 	E := 4.000000
 	epsilon := .000001
@@ -272,7 +316,8 @@ func TestVariance(t *testing.T) {
 		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
 	}
 }
-
+*/
+/*
 func TestPointProb(t *testing.T) {
 	R := 10010.0
 	Ri := 100.0
@@ -300,7 +345,7 @@ func TestPointProb(t *testing.T) {
 	}
 }
 
-func TestLogLikeli(t *testing.T) {
+/*func TestLogLikeli(t *testing.T) {
 	// TODO In Progress
 	K := 5.0  // 5 clusters
 	M := 2.0 // Dimensions
@@ -355,3 +400,4 @@ func TestBIC(t *testing.T) {
 		t.Errorf("TestBIC: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
 	}
 }
+*/

@@ -229,14 +229,15 @@ type Kmodel struct {
 // Calling Kmeansmodels(datapoints, 4, 10, cc, measurer) will return a map where
 // the index is the number k is a member of {4...10} and the value is a Kmodel 
 // with the details of the model.
-func Kmeansmodels(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) map[int]Kmodel {
+/*func Kmeansmodels(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) map[int]Kmodel {
 	// TODO This is just place holder function at the moment
 	for i := klow; i < kup; i++ {
 		centroids, clusterAssessment, err := Kmeansp(datapoints, i, cc, measurer)
 	}
+
 	m := make(map[int]Kmodel, 10)
 	return m
-}
+}*/
 	
 
 // Kmeansp partitions datapoints into K clusters.  This results in a partitioning of
@@ -393,7 +394,7 @@ func awaitPairPointCentroidCompletion(done <-chan int, results chan PairPointCen
 	close(results)
 }
 
-// processPairPointToCentroidResults assigns the results to the clusterAssessment matrix.
+// assessClusters assigns the results to the clusterAssessment matrix.
 func assessClusters(clusterAssessment *matrix.DenseMatrix, results <-chan PairPointCentroidResult) bool {
 	change := false
 	for result := range results {
