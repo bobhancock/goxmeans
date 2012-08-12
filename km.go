@@ -464,27 +464,17 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
 func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) (float64, error) {
-	rows, M := points.GetSize()
+	rows, _ := points.GetSize()
 	R := float64(rows)
-	
+
 	// Sum over all points (point_i - mean(i))^2
 	sum := float64(0)
 	for i := 0; i < rows; i++ {
 		p := points.GetRowVector(i)
 		// Find it's centroid
 		centindex := clusterAssessment.Get(i, 0)
-		centRowVector, err := centroids.FiltCol(centindex, centindex, 0)
-		if err != nil {
-			return sum, errors.New(fmt.Sprintf("goxmeans:variance error from centroids.FiltCol = %v\n", err))
-		}
-
-		// coordinates are cols 1...M
-		centCoords := matrix.Zeros(1, M)
-		for j := 0; j <= M; j++ {
-			centCoords.Set(1, j, centRowVector.Get(1, j+1))
-		}
-
-		dist := measurer.CalcDist(centCoords, p)
+		mu_i := centroids.GetRowVector(int(centindex))
+		dist := measurer.CalcDist(mu_i, p)
 		sum += math.Pow(dist, 2) 
 	}
 	variance := float64((1 / (R - K))) * sum

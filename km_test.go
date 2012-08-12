@@ -2,10 +2,9 @@ package goxmeans
 
 import (
 	"bufio"
-//	"code.google.com/p/gomatrix/matrix"
 	"fmt"
 	"os"
-//	"math"
+	"math"
 	"testing"
 	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
@@ -236,7 +235,6 @@ func TestAssessClusters(t *testing.T) {
 	}
 	go awaitPairPointCentroidCompletion(done, results)
 
-    //TODO check deterministic results of clusterAssessment
     clusterChanged := assessClusters(clusterAssessment, results)
 	if clusterChanged != true {
 		t.Errorf("TestAssessClusters: clusterChanged=%b and should be true.", clusterChanged)
@@ -284,30 +282,34 @@ func TestKmeansbi(t *testing.T) {
 	// TODO deterministic test
 }
 */
-/*  
+  
 func TestVariance(t *testing.T) {
-	numRows, numCols := DATAPOINTS.GetSize()
-	clusterAssessment := matrix.Zeros(numRows, numCols)
+	r, c := DATAPOINTS.GetSize()
+	clusterAssessment := matrix.Zeros(r, c)
 
-	jobs := make(chan PairPointCentroidJob, numworkers)
-	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
-	done := make(chan int, numworkers)
-	var measurer matutil.EuclidDist 
+	done := make(chan int)
+	jobs := make(chan PairPointCentroidJob, r)
+	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
-	go addPairPointCentroidJobs(jobs, DATAPOINTS, clusterAssessment, CENTROIDS, measurer, results)
-	for i := 0; i < numworkers; i++ {
+	var ed matutil.EuclidDist
+	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, clusterAssessment, ed, results)
+
+	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
-	b := assessClusters(clusterAssessment, results) // This blocks so that all the results can be processed
-	fmt.Println(b, clusterAssessment)
 
-	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, measurer)
+    clusterChanged := assessClusters(clusterAssessment, results)
+	if clusterChanged != true {
+		t.Errorf("TestAssessClusters: clusterChanged=%b and should be true.", clusterChanged)
+	}
+
+	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1.0, ed)
 	if err != nil {
 		t.Errorf("TestVariance: err = %v", err)
 	}
-	
-	E := 4.000000
+
+	E := 3873.760402
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(v - na) 
@@ -316,7 +318,7 @@ func TestVariance(t *testing.T) {
 		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
 	}
 }
-*/
+
 /*
 func TestPointProb(t *testing.T) {
 	R := 10010.0
@@ -345,7 +347,8 @@ func TestPointProb(t *testing.T) {
 	}
 }
 
-/*func TestLogLikeli(t *testing.T) {
+
+func TestLogLikeli(t *testing.T) {
 	// TODO In Progress
 	K := 5.0  // 5 clusters
 	M := 2.0 // Dimensions
