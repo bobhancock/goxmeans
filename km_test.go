@@ -45,7 +45,7 @@ func makeClusterAssessment() *matrix.DenseMatrix {
 
     clusterChanged := assessClusters(clusterAssessment, results)
 	if clusterChanged != true {
-		fmt.Printf("makeClusterAssessment: clusterChanged = false!  clusterAssessment is not valid.\n")
+		fmt.Printf("makeClusterAssessment:ERROR clusterChanged = false!  clusterAssessment is not valid.\n")
 	}
 //	fmt.Println(clusterAssessment)
 	return clusterAssessment
@@ -338,6 +338,16 @@ func TestPointProb(t *testing.T) {
 	}
 }
 
+func TestFreeparams(t *testing.T) {
+	K := 6
+	M := 3
+
+	r := freeparams(K, M)
+	if r != 24 {
+		t.Errorf("TestFreeparams: Expected 24 but received %f.", r)
+	}
+}
+
 func TestLogLikeli(t *testing.T) {
 	K := 2
 	_, M := DATAPOINTS.GetSize()
@@ -364,31 +374,25 @@ func TestLogLikeli(t *testing.T) {
 	}
 }
 
-func TestFreeparams(t *testing.T) {
+func TestBIC(t *testing.T) {
+	clusterAssessment := makeClusterAssessment()
+	var ed matutil.EuclidDist
 	K := 6
 	M := 3
+	R := 1000
+	Rn := []float64{float64(R)} // for testing a model without a parent
 
-	r := freeparams(K, M)
-	if r != 24 {
-		t.Errorf("TestFreeparams: Expected 24 but received %f.", r)
+	bic, err := calcBIC(DATAPOINTS, CENTROIDS, clusterAssessment, ed, K, M, R, Rn)
+	if err != nil {
+		t.Errorf("TestBIC: err=%v", err)
 	}
-}
-
-/*
-func TestBIC(t *testing.T) {
-	K := 6.0
-	M := 3.0
-	fp := freeparams(K, M)
-	loglike := 3199.331
-	R := 1000.0
-	bic := BIC(loglike, fp, R)
 	
-	E :=  3180.423244721018
+	E := 16537.083041
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(bic - na) 
+
 	if diff > epsilon {
 		t.Errorf("TestBIC: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
 	}
 }
-*/

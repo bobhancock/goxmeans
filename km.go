@@ -477,7 +477,7 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, 
 		dist := measurer.CalcDist(mu_i, p)
 		sum += math.Pow(dist, 2) 
 	}
-	variance := float64((1 / (float64(R) - float64(K)))) * sum
+	variance := float64((1.0 / (float64(R) - float64(K)))) * sum
 
 	return variance, nil
 }
@@ -586,7 +586,7 @@ func freeparams(K, M int) int {
 	return (K - 1) + (M * K) + 1
 }
 
-// BIC calculates the Bayesian Information Criterion or Schwarz Criterion
+// calcBIC calculates the Bayesian Information Criterion or Schwarz Criterion
 // 
 // D = set of points
 //
@@ -602,11 +602,6 @@ func freeparams(K, M int) int {
 // maximum likelihood point.
 //
 // BIC(M_j) = l_j(D) - freeparams/2 * log R
-func bic(lD float64, freeparams, R int) float64 {
-	return lD - (float64(freeparams) / 2.0) - math.Log(float64(R))
-}
-
-// calcBIC calculates the Bayesian Information Criterion for the model datapoints
 func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, K, M, R int, Rn []float64) (float64, error) {
 	variance, err := variance(datapoints, centroids, clusterAssessment, K, measurer)
 	if err != nil {
@@ -614,8 +609,9 @@ func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measu
 	}
 
 	loglikelihood := loglikeli(variance, K, M, R, Rn)
-	 
 	freeparams := freeparams(K, M)
 
-	return bic(loglikelihood, freeparams, R), nil
+	bic := loglikelihood - (float64(freeparams) / 2.0) - math.Log(float64(R))
+
+	return bic, nil
 }
