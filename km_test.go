@@ -27,6 +27,30 @@ var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 46.57890839,   11.95938243,
     67.54513486,  134.19858589,
     81.16283573,   95.83181046}, 3, 2)
 
+func makeClusterAssessment() *matrix.DenseMatrix {
+	r, c := DATAPOINTS.GetSize()
+	clusterAssessment := matrix.Zeros(r, c)
+
+	done := make(chan int)
+	jobs := make(chan PairPointCentroidJob, r)
+	results := make(chan PairPointCentroidResult, minimum(1024, r))
+
+	var ed matutil.EuclidDist
+	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, clusterAssessment, ed, results)
+
+	for i := 0; i < r; i++ {
+		go doPairPointCentroidJobs(done, jobs)
+	}
+	go awaitPairPointCentroidCompletion(done, results)
+
+    clusterChanged := assessClusters(clusterAssessment, results)
+	if clusterChanged != true {
+		fmt.Printf("makeClusterAssessment: clusterChanged = false!  clusterAssessment is not valid.\n")
+	}
+//	fmt.Println(clusterAssessment)
+	return clusterAssessment
+}
+
 func TestAtof64Invalid(t *testing.T) {
 	s := "xyz"
 	if _, err := Atof64(s); err == nil {
@@ -240,22 +264,6 @@ func TestAssessClusters(t *testing.T) {
 		t.Errorf("TestAssessClusters: clusterChanged=%b and should be true.", clusterChanged)
 	}
 
-
-// clusterAssessment should be:
-//           {0,  2735.870542,
-//            0,  3514.028629,
-//           0,  3789.608092,
-//            0,  2823.700695,
-//            0,  3371.573353,
-//            0,  3650.151034,
-//            0,  2688.263408,
-//            0,  3451.251581,
-//           0,   3765.20347,
-//            0,  3097.128834,
-//            1, 12366.703097,
-//            1, 23896.546727}
-
-
 	if clusterAssessment.Get(9, 0) != 0 || clusterAssessment.Get(10, 0) != 1 {
 		t.Errorf("TestAssessClusters: rows 9 and 10 should have 0 and 1 in column 0, but received %v", clusterAssessment)
 	}
@@ -284,27 +292,10 @@ func TestKmeansbi(t *testing.T) {
 */
   
 func TestVariance(t *testing.T) {
-	r, c := DATAPOINTS.GetSize()
-	clusterAssessment := matrix.Zeros(r, c)
-
-	done := make(chan int)
-	jobs := make(chan PairPointCentroidJob, r)
-	results := make(chan PairPointCentroidResult, minimum(1024, r))
-
+	clusterAssessment := makeClusterAssessment()
 	var ed matutil.EuclidDist
-	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, clusterAssessment, ed, results)
 
-	for i := 0; i < r; i++ {
-		go doPairPointCentroidJobs(done, jobs)
-	}
-	go awaitPairPointCentroidCompletion(done, results)
-
-    clusterChanged := assessClusters(clusterAssessment, results)
-	if clusterChanged != true {
-		t.Errorf("TestAssessClusters: clusterChanged=%b and should be true.", clusterChanged)
-	}
-
-	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1.0, ed)
+	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, ed)
 	if err != nil {
 		t.Errorf("TestVariance: err = %v", err)
 	}
@@ -319,7 +310,7 @@ func TestVariance(t *testing.T) {
 	}
 }
 
-/*
+
 func TestPointProb(t *testing.T) {
 	R := 10010.0
 	Ri := 100.0
@@ -347,46 +338,43 @@ func TestPointProb(t *testing.T) {
 	}
 }
 
-
 func TestLogLikeli(t *testing.T) {
-	// TODO In Progress
-	K := 5.0  // 5 clusters
-	M := 2.0 // Dimensions
+	K := 2
+	_, M := DATAPOINTS.GetSize()
 
-	D, err := Load("./testSet.txt")
+	R, _ := DATAPOINTS.GetSize()
+	Rn := []float64{float64(R)} // for testing a model without a parent
+	clusterAssessment := makeClusterAssessment()
+	var ed matutil.EuclidDist
+
+	V, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
 	if err != nil {
-		t.Errorf("TestLogLikeli: Load returned err=%s.", err)
+		t.Errorf("TestLogLikeli: variance returned err=%v", err)
 	}
 
-	var ed matutil.EuclidDist
-	r, _ := D.GetSize()
-	R := float64(r)
-	mean := D.MeanCols()
-	V := variance(D, mean, K, ed)
-	Rn := []float64{R}
+	ll := loglikeli(V, K, M, R, Rn)
 
-	ll := loglikeli(R, M, V, K, Rn)
-
-	E :=  422.331625
+	E :=  127.342019
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(ll - na) 
 
 	if diff > epsilon {
-		t.Errorf("TestLoglikeli: Expected 422.331625 but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
+		t.Errorf("TestLoglikeli: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
 	}
 }
 
 func TestFreeparams(t *testing.T) {
-	K := 6.0
-	M := 3.0
+	K := 6
+	M := 3
 
 	r := freeparams(K, M)
-	if r != 24. {
+	if r != 24 {
 		t.Errorf("TestFreeparams: Expected 24 but received %f.", r)
 	}
 }
 
+/*
 func TestBIC(t *testing.T) {
 	K := 6.0
 	M := 3.0

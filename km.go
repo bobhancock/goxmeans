@@ -463,9 +463,9 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 //
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
-func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K float64, measurer matutil.VectorMeasurer) (float64, error) {
+func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) (float64, error) {
 	rows, _ := points.GetSize()
-	R := float64(rows)
+	R := rows
 
 	// Sum over all points (point_i - mean(i))^2
 	sum := float64(0)
@@ -477,7 +477,7 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K float
 		dist := measurer.CalcDist(mu_i, p)
 		sum += math.Pow(dist, 2) 
 	}
-	variance := float64((1 / (R - K))) * sum
+	variance := float64((1 / (float64(R) - float64(K)))) * sum
 
 	return variance, nil
 }
@@ -540,22 +540,24 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // V = unbiased variance of D
 // K = number of clusters
 //
-// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)
+// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)]
 //
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
-// N.B. When applying this to D, then R = Rn.  When bisecting, R refers to the original,
-// or parent cluster, Rn is a member of the clusers {R_0, R_1} the two child clusters.
+// N.B. When applying this to a model with no parent cluster as in evaluating 
+// the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.  When 
+// bisecting, R refers to the original, or parent cluster, Rn is a member of 
+// the set {R_0, R_1} the two child clusters.
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation 23.
-func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
-	t2 := R * math.Log(R)
+func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
+	t2 := float64(R) * math.Log(float64(R))
 //	fmt.Printf("t2=%f\n", t2)
 
-	t3 := ((R * M) / 2.0)  * math.Log(2.0 * math.Pi * variance)
+	t3 := ((float64(R) * float64(M)) / 2.0)  * math.Log(2.0 * math.Pi * variance)
 //	fmt.Printf("t3=%f\n",t3)
 
-	t4 := (1 / 2.0) * (R - K)
+	t4 := (1 / 2.0) * (float64(R) - float64(K))
 //	fmt.Printf("t4=%f\n", t4)
 
 	ts := t2 - t3 - t4
@@ -580,8 +582,8 @@ func loglikeli(R, M, variance, K float64, Rn []float64) float64 {
 // (K - 1 class probabilities) + (M * K) + 1 variance estimate.
 // Since the variance is a free paramter, identical for every cluster, it
 // counts as 1.
-func freeparams(K, M float64) float64 {
-	return (K - 1.0) + (M * K) + 1
+func freeparams(K, M int) int {
+	return (K - 1) + (M * K) + 1
 }
 
 // BIC calculates the Bayesian Information Criterion or Schwarz Criterion
@@ -600,20 +602,20 @@ func freeparams(K, M float64) float64 {
 // maximum likelihood point.
 //
 // BIC(M_j) = l_j(D) - freeparams/2 * log R
-func bic(lD, freeparams, R float64) float64 {
-	return lD - (freeparams / 2) - math.Log(R)
+func bic(lD float64, freeparams, R int) float64 {
+	return lD - (float64(freeparams) / 2.0) - math.Log(float64(R))
 }
 
 // calcBIC calculates the Bayesian Information Criterion for the model datapoints
-func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, R, K, M float64, Rn []float64) (float64, error) {
+func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, K, M, R int, Rn []float64) (float64, error) {
 	variance, err := variance(datapoints, centroids, clusterAssessment, K, measurer)
 	if err != nil {
 		return 0.0, errors.New(fmt.Sprintf("calcBIC: variance returned err = %v\n", err))
 	}
 
-	loglikelihood := loglikeli(R, M, variance, K, Rn)
+	loglikelihood := loglikeli(variance, K, M, R, Rn)
 	 
-	freeparameters := freeparams(K, M)
+	freeparams := freeparams(K, M)
 
-	return bic(loglikelihood, freeparameters, R), nil
+	return bic(loglikelihood, freeparams, R), nil
 }
