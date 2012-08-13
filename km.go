@@ -3,15 +3,9 @@
  
  See Dan Pelleg and Andrew Moore - X-means: Extending K-means with Efficient Estimation of the Number of Clusters. 
 
- i = the index of the centroid which is closest to the i-th point.
-
  D = the input set of points
 
- Di is a subset of D and is the set of points that have mu_i as their closest centroid.
-
- R = |D|
-
- Ri = |Di|
+ R = |D| the number of points in a model.
 
  M = number of dimensions assuming spherical Gaussians.
 */
@@ -35,8 +29,6 @@ import (
 )
 
 var numworkers = runtime.NumCPU()
-//var numworkers = 1
-
 
 // minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
@@ -471,8 +463,7 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, 
 	sum := float64(0)
 	for i := 0; i < rows; i++ {
 		p := points.GetRowVector(i)
-		// Find it's centroid
-		centindex := clusterAssessment.Get(i, 0)
+		centindex := clusterAssessment.Get(i, 0) // Get centroid for this point
 		mu_i := centroids.GetRowVector(int(centindex))
 		dist := measurer.CalcDist(mu_i, p)
 		sum += math.Pow(dist, 2) 

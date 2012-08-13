@@ -291,26 +291,6 @@ func TestKmeansbi(t *testing.T) {
 }
 */
   
-func TestVariance(t *testing.T) {
-	clusterAssessment := makeClusterAssessment()
-	var ed matutil.EuclidDist
-
-	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, ed)
-	if err != nil {
-		t.Errorf("TestVariance: err = %v", err)
-	}
-
-	E := 3873.760402
-	epsilon := .000001
-	na := math.Nextafter(E, E + 1) 
-	diff := math.Abs(v - na) 
-
-	if diff > epsilon {
-		t.Errorf("TestVariance: excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
-	}
-}
-
-
 func TestPointProb(t *testing.T) {
 	R := 10010.0
 	Ri := 100.0
@@ -348,7 +328,34 @@ func TestFreeparams(t *testing.T) {
 	}
 }
 
+func TestVariance(t *testing.T) {
+	// TODO
+	// Test 1 for Model D (with no parent, complete model)
+	// Test 2 for Dn with parent D (individual cluster)
+	// Test 3 for {Dn0, Dn1} with parent Dn (bisection)
+	clusterAssessment := makeClusterAssessment()
+	var ed matutil.EuclidDist
+
+	// Model D
+	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, ed)
+	if err != nil {
+		t.Errorf("TestVariance: err = %v", err)
+	}
+
+	E := 3873.760402
+	epsilon := .000001
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(v - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestVariance: for model D excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
+	}
+
+	// Model Dn
+}
+
 func TestLogLikeli(t *testing.T) {
+	// TODO same tests as variance
 	K := 2
 	_, M := DATAPOINTS.GetSize()
 
