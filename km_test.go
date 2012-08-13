@@ -27,8 +27,8 @@ var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 46.57890839,   11.95938243,
     67.54513486,  134.19858589,
     81.16283573,   95.83181046}, 3, 2)
 
-func makeClusterAssessment() *matrix.DenseMatrix {
-	r, c := DATAPOINTS.GetSize()
+func makeClusterAssessment(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseMatrix {
+	r, c := datapoints.GetSize()
 	clusterAssessment := matrix.Zeros(r, c)
 
 	done := make(chan int)
@@ -36,7 +36,7 @@ func makeClusterAssessment() *matrix.DenseMatrix {
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
 	var ed matutil.EuclidDist
-	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, clusterAssessment, ed, results)
+	go addPairPointCentroidJobs(jobs, datapoints, centroids, clusterAssessment, ed, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
@@ -329,11 +329,7 @@ func TestFreeparams(t *testing.T) {
 }
 
 func TestVariance(t *testing.T) {
-	// TODO
-	// Test 1 for Model D (with no parent, complete model)
-	// Test 2 for Dn with parent D (individual cluster)
-	// Test 3 for {Dn0, Dn1} with parent Dn (bisection)
-	clusterAssessment := makeClusterAssessment()
+	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
 
 	// Model D
@@ -350,18 +346,18 @@ func TestVariance(t *testing.T) {
 	if diff > epsilon {
 		t.Errorf("TestVariance: for model D excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
 	}
-
-	// Model Dn
 }
 
 func TestLogLikeli(t *testing.T) {
-	// TODO same tests as variance
-	K := 2
-	_, M := DATAPOINTS.GetSize()
-
-	R, _ := DATAPOINTS.GetSize()
+	// TODO
+	// Model D
+	// Model Dn with parent D
+	
+	// Model D
+	K := 5
+	R, M := DATAPOINTS.GetSize()
 	Rn := []float64{float64(R)} // for testing a model without a parent
-	clusterAssessment := makeClusterAssessment()
+	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
 
 	V, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
@@ -371,18 +367,51 @@ func TestLogLikeli(t *testing.T) {
 
 	ll := loglikeli(V, K, M, R, Rn)
 
-	E :=  127.342019
 	epsilon := .000001
+	E := 130.122118
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(ll - na) 
 
 	if diff > epsilon {
 		t.Errorf("TestLoglikeli: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
 	}
+
+	// Model Dn
+	datapoints_n0 := matrix.Zeros(R/2, M)
+	for i := 0; i < R/2; i++ {
+		for j := 0; j < M; j++ {
+			datapoints_n0.Set(i, j, DATAPOINTS.Get(i, j))
+		}
+	}
+	
+	datapoints_n1 :=  matrix.Zeros(R - (R/2), M)
+	for i, m := (R/2), 0; i < R ; i++ {
+		for j := 0; j < M; j++ {
+			datapoints_n1.Set(m, j, DATAPOINTS.Get(i, j))
+		}
+		m += 1
+	}
+
+	Rn0, _ := datapoints_n0.GetSize()
+	Rn1, _ := datapoints_n1.GetSize()
+	Rn = []float64{float64(Rn0), float64(Rn1)}
+	ll = loglikeli(V, K, M, R, Rn)
+
+	E = 222.107590
+	na = math.Nextafter(E, E + 1) 
+	diff = math.Abs(ll - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestLoglikeli: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
+	}
 }
 
-func TestBIC(t *testing.T) {
-	clusterAssessment := makeClusterAssessment()
+/*func TestBIC(t *testing.T) {
+	// TODO
+	// Test 1 for Model D (with no parent, complete model)
+	// Test 2 for Dn with parent D (individual cluster)
+	// Test 3 for {Dn0, Dn1} with parent Dn (bisection)
+	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
 	K := 6
 	M := 3
@@ -402,4 +431,4 @@ func TestBIC(t *testing.T) {
 	if diff > epsilon {
 		t.Errorf("TestBIC: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
 	}
-}
+}*/

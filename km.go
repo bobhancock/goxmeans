@@ -23,7 +23,6 @@ import (
 	"strings"
 	"runtime"
 	"log"
-//	"code.google.com/p/gomatrix/matrix"
 	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
 )
@@ -522,24 +521,28 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
 // N.B. When applying this to a model with no parent cluster as in evaluating 
-// the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.  When 
-// bisecting, R refers to the original, or parent cluster, Rn is a member of 
-// the set {R_0, R_1} the two child clusters.
+// the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation 23.
 //
 // l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)]
-// IN PROGRESS
 func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
+//	fmt.Println(variance, K, M, R, Rn)
 	t2 := float64(R) * math.Log(float64(R))
+//	fmt.Printf("t2=%f\n", t2)
 	t3 := ((float64(R) * float64(M)) / 2.0)  * math.Log(2.0 * math.Pi * variance)
-	t4 := (1 / 2.0) * (float64(R) - float64(K))
+//	fmt.Printf("t3=%f\n",t3)
+	t4 := (1.0 / 2.0) * (float64(R) - float64(K))
+//	fmt.Printf("t4=%f\n", t4)
 	ts := t2 - t3 - t4
+//	fmt.Printf("ts=%f\n", ts)
 
 	ll := float64(0)
 	for n := 0; n < int(len(Rn)); n++ {
 		t1 := Rn[n] * math.Log(Rn[n])
+//		fmt.Printf("t1=%f\n",t1)
 		s := t1 - ts
+//		fmt.Printf("s=%f\n",s)
 		ll += s
 	}
 	return ll
