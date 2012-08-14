@@ -477,7 +477,7 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, 
 // R = |D|
 // Ri = |Dn| for the cluster contining the point x_i.
 // M = # of dimensions
-// V = variance of Dn
+// V = variance of D
 // mu(i) =  the coordinates of the centroid closest to the i-th data point.
 //
 // P(x_i) = [ (Ri / R) * (1 / (sqrt(2 * Pi) * stddev^M) ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
@@ -511,12 +511,12 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // loglikeli is the log likelihood estimate of the data taken at the maximum
 // likelihood point.  1 <= n <= K
 //
-// D = set of points
+// D = total set of points which belong to the centroids under consideration.
 // R = |D|
 // R_n = |D_n|
 // M = # of dimensions
 // V = unbiased variance of D
-// K = number of clusters
+// K = number of centroids under consideration.
 //
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
@@ -524,6 +524,10 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation 23.
+//
+// N.B. that when this is used with only one data model, as when you evaluate
+// the set of all datapoints, that is those that belong to all centroids, then
+// the terms [R_n logR_n - R logR] will equate to 0.
 //
 // l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)]
 func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
