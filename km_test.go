@@ -353,9 +353,6 @@ func TestVariance(t *testing.T) {
 
 func TestLogLikeli(t *testing.T) {
 	// Model D
-	// Model Dn with parent D
-	
-	// Model D
 	K := 5
 	R, M := DATAPOINTS.GetSize()
 	Rn := []float64{float64(R)} // for testing a model without a parent
@@ -376,36 +373,6 @@ func TestLogLikeli(t *testing.T) {
 
 	if diff > epsilon {
 		t.Errorf("TestLoglikeli: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
-	}
-
-	// Model Dn
-	K = 2
-	datapoints_n0 := matrix.Zeros(R/2, M)
-	for i := 0; i < R/2; i++ {
-		for j := 0; j < M; j++ {
-			datapoints_n0.Set(i, j, DATAPOINTS.Get(i, j))
-		}
-	}
-	
-	datapoints_n1 :=  matrix.Zeros(R - (R/2), M)
-	for i, m := (R/2), 0; i < R ; i++ {
-		for j := 0; j < M; j++ {
-			datapoints_n1.Set(m, j, DATAPOINTS.Get(i, j))
-		}
-		m += 1
-	}
-
-	Rn0, _ := datapoints_n0.GetSize()
-	Rn1, _ := datapoints_n1.GetSize()
-	Rn = []float64{float64(Rn0), float64(Rn1)}
-	ll = loglikeli(V, K, M, R, Rn)
-
-	E = 225.107590
-	na = math.Nextafter(E, E + 1) 
-	diff = math.Abs(ll - na) 
-
-	if diff > epsilon {
-		t.Errorf("TestLoglikeli: For model Dn expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
 	}
 }
 
