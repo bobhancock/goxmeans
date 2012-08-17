@@ -399,6 +399,7 @@ func TestBIC(t *testing.T) {
 	}
 
 	// {Dn0, Dn1} with parent D (bisection)
+	// IN PROGRESS
 	K = 2
 	datapoints_n0 := matrix.Zeros(R/2, M)
 	for i := 0; i < R/2; i++ {
