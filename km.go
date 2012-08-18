@@ -511,7 +511,7 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 	return normdist
 }
 
-// loglikeli is the log likelihood estimate of the data taken at the maximum
+// loglikelih is the log likelihood estimate of the data taken at the maximum
 // likelihood point.  1 <= n <= K
 //
 // D = total set of points which belong to the centroids under consideration.
@@ -532,7 +532,7 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //l (D)  =  \          R logR  - RlogR - -- log(2Pi  *  Var)  -  - (R - K)
 //          /__ n = 1   n    n            2                      2         
 //
-func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
+func loglikelih(variance float64, K, M, R int, Rn []float64) float64 {
 //	fmt.Println(variance, K, M, R, Rn)
 	t2 := float64(R) * math.Log(float64(R))
 //	fmt.Printf("t2=%f\n", t2)
@@ -588,6 +588,6 @@ func freeparams(K, M int) int {
 //      j       j         2       
 //
 //func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, K, M, R int, Rn []float64) (float64, error) {
-func bic(loglike float64, numparams, R int) (float64) {
-	return loglikelihood - (float64(numparams) / 2.0) - math.Log(float64(R))
+func bic(loglikeh float64, numparams, R int) (float64) {
+	return loglikeh - (float64(numparams) / 2.0) - math.Log(float64(R))
 }
