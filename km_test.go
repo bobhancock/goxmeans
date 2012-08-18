@@ -399,7 +399,6 @@ func TestBIC(t *testing.T) {
 	}
 
 	// {Dn0, Dn1} with parent D (bisection)
-	// IN PROGRESS
 	K = 2
 	datapoints_n0 := matrix.Zeros(R/2, M)
 	for i := 0; i < R/2; i++ {
@@ -419,7 +418,6 @@ func TestBIC(t *testing.T) {
 	Rn0, _ := datapoints_n0.GetSize()
 	Rn1, _ := datapoints_n1.GetSize()
 	Rn = []float64{float64(Rn0), float64(Rn1)}
-
 
 	bic, err = calcBIC(DATAPOINTS, CENTROIDS, clusterAssessment, ed, K, M, R, Rn)
 	if err != nil {

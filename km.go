@@ -449,7 +449,10 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 // centroids =  K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
 // Columns 1...M contain the centroid coordinates.  (See Kmeansp() for an example.)
 //
-// variance = (1 / (R - K) * \sigma for all i  (datapoint_i - mu_(i))^2
+//    1        __                 2
+// ------  *  \     (x   -  mu   ) 
+// R - K      /__ i   i       (i)  
+//
 // where i indexes the individual points.  
 //
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
@@ -525,11 +528,10 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation 23.
 //
-// N.B. that when this is used with only one data model, as when you evaluate
-// the set of all datapoints, that is those that belong to all centroids, then
-// the terms [R_n logR_n - R logR] will equate to 0.
+// ^         __ K                        RM                      1         
+//l (D)  =  \          R logR  - RlogR - -- log(2Pi  *  Var)  -  - (R - K)
+//          /__ n = 1   n    n            2                      2         
 //
-// l^hat(D) = \sigma n=1 to K [R_n logR_n - R logR - (RM/2log * log(2Pi * V) - 1/2(R - K)]
 func loglikeli(variance float64, K, M, R int, Rn []float64) float64 {
 //	fmt.Println(variance, K, M, R, Rn)
 	t2 := float64(R) * math.Log(float64(R))
@@ -573,23 +575,19 @@ func freeparams(K, M int) int {
 //
 // M = number of dimesions assuming a spherical Gaussians
 //
-// p = number of parameters in Mj
+// p_j = number of parameters in Mj
 //
 // log = the natural log
 //
 // l(D) = the log likelihood of the data of the jth model taken at the 
 // maximum likelihood point.
 //
-// BIC(M_j) = l_j(D) - freeparams/2 * log R
-func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, K, M, R int, Rn []float64) (float64, error) {
-	variance, err := variance(datapoints, centroids, clusterAssessment, K, measurer)
-	if err != nil {
-		return 0.0, errors.New(fmt.Sprintf("calcBIC: variance returned err = %v\n", err))
-	}
-
-	loglikelihood := loglikeli(variance, K, M, R, Rn)
-	freeparams := freeparams(K, M)
-	bic := loglikelihood - (float64(freeparams) / 2.0) - math.Log(float64(R))
-
-	return bic, nil
+//                       p        
+//              ^         j       
+// BIC(M )  =  l (D)  -  -- * logR
+//      j       j         2       
+//
+//func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, K, M, R int, Rn []float64) (float64, error) {
+func bic(loglike float64, numparams, R int) (float64) {
+	return loglikelihood - (float64(numparams) / 2.0) - math.Log(float64(R))
 }
