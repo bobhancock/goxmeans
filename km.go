@@ -457,7 +457,7 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 //
 // N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
-func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) (float64, error) {
+func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) float64 {
 	rows, _ := points.GetSize()
 	R := rows
 
@@ -472,7 +472,7 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, 
 	}
 	variance := float64((1.0 / (float64(R) - float64(K)))) * sum
 
-	return variance, nil
+	return variance
 }
 
 // pointProb calculates the probability of an individual point.
@@ -578,7 +578,6 @@ func freeparams(K, M int) int {
 // BIC(M )  =  l (D)  -  -- * logR
 //      j       j         2       
 //
-//func calcBIC(datapoints, centroids, clusterAssessment *matrix.DenseMatrix, measurer matutil.VectorMeasurer, K, M, R int, Rn []float64) (float64, error) {
 func bic(loglikeh float64, numparams, R int) (float64) {
 	return loglikeh - (float64(numparams) / 2.0) - math.Log(float64(R))
 }

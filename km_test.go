@@ -333,10 +333,7 @@ func TestVariance(t *testing.T) {
 	var ed matutil.EuclidDist
 
 	// Model D
-	v, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, ed)
-	if err != nil {
-		t.Errorf("TestVariance: err = %v", err)
-	}
+	v := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, ed)
 
 	E := 145.479298
 	epsilon := .000001
@@ -356,10 +353,7 @@ func TestLogLikelih(t *testing.T) {
 	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
 
-	var1, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
-	if err != nil {
-		t.Errorf("TestLogLikeli: variance returned err=%v", err)
-	}
+	var1 := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
 	Vn := []float64{var1}
 	ll := loglikelih(K, M, R, Rn, Vn)
 
@@ -409,17 +403,10 @@ func TestBic(t *testing.T) {
 	clusterAssessment := makeClusterAssessment(datapoints, centroid)
 	var ed matutil.EuclidDist
 	
-	v1, err := variance(datapoints, centroid, clusterAssessment, 1, ed)
-	if err != nil {
-		t.Errorf("v1 err=%v", err)
-	}
+	v1 := variance(datapoints, centroid, clusterAssessment, 1, ed)
 //	fmt.Printf("var1=%f\n", v1)
 
 	numparams := freeparams(K, M)
-	if err != nil {
-		t.Errorf("TestBicComp: for model 1 variance returned err=%v", err)
-	}
-
 	Vn1 := []float64{v1}
 	loglikeh1 := loglikelih(K, M, R, Rn, Vn1)
 //	fmt.Printf("loglikelihood1 = %f\n", loglikeh1)
@@ -435,17 +422,11 @@ func TestBic(t *testing.T) {
 	numparams2 := freeparams(K, M)
 
 	Vn2 := make([]float64, 2)
-	v2_0, err := variance(datapoints, newcents, newca, 2, ed)
-	if err != nil {
-		t.Errorf("v2_0 err=%v", err)
-	}
+	v2_0 := variance(datapoints, newcents, newca, 2, ed)
 //	fmt.Printf("var2_0=%f\n", v2_0)
 	Vn2[0] = v2_0
 
-	v2_1, err := variance(datapoints, newcents, newca, 2, ed)
-	if err != nil {
-		t.Errorf("v2_1 err=%v", err)
-	}
+	v2_1 := variance(datapoints, newcents, newca, 2, ed)
 //	fmt.Printf("var2_1=%f\n", v2_1)
 	Vn2[1] = v2_1
 
