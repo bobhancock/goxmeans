@@ -346,9 +346,6 @@ func TestVariance(t *testing.T) {
 	if diff > epsilon {
 		t.Errorf("TestVariance: for model D excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
 	}
-	
-	// Model Dn
-
 }
 
 func TestLogLikelih(t *testing.T) {
@@ -374,70 +371,6 @@ func TestLogLikelih(t *testing.T) {
 	if diff > epsilon {
 		t.Errorf("TestLoglikeli: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
 	}
-}
-
-func TestBIC(t *testing.T) {
-	//D with no parent.
-	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
-	var ed matutil.EuclidDist
-	R, M := DATAPOINTS.GetSize()
-	K, _ := CENTROIDS.GetSize()
-	Rn := []int{R} // for testing a model without a parent
-	numparams := freeparams(K, M)
-
-	variance, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
-	if err != nil {
-		t.Errorf("TestBIC: variance returned err=%v", err)
-	}
-	Vn := []float64{variance}
-	
-	loglikeh := loglikelih(K, M, R, Rn, Vn)
-
-	bic := bic(loglikeh, numparams, R)
-	
-	E := -84.680623
-	epsilon := .000001
-	na := math.Nextafter(E, E + 1) 
-	diff := math.Abs(bic - na) 
-
-	if diff > epsilon {
-		t.Errorf("TestBIC: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
- 	}
-/*
-	// {Dn0, Dn1} with parent D (bisection)
-	K = 2
-	datapoints_n0 := matrix.Zeros(R/2, M)
-	for i := 0; i < R/2; i++ {
-		for j := 0; j < M; j++ {
-			datapoints_n0.Set(i, j, DATAPOINTS.Get(i, j))
-		}
-	}
-	
-	datapoints_n1 :=  matrix.Zeros(R - (R/2), M)
-	for i, m := (R/2), 0; i < R ; i++ {
-		for j := 0; j < M; j++ {
-			datapoints_n1.Set(m, j, DATAPOINTS.Get(i, j))
-		}
-		m += 1
-	}
-
-	Rn0, _ := datapoints_n0.GetSize()
-	Rn1, _ := datapoints_n1.GetSize()
-	Rn = []float64{float64(Rn0), float64(Rn1)}
-
-	bic, err = calcBIC(DATAPOINTS, CENTROIDS, clusterAssessment, ed, K, M, R, Rn)
-	if err != nil {
-		t.Errorf("TestBIC: err=%v", err)
-	}
-	
-	E = 211.062485
-	na = math.Nextafter(E, E + 1) 
-	diff = math.Abs(bic - na) 
-
-	if diff > epsilon {
-		t.Errorf("TestBIC: For model Dn expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
-	}
-*/
 }
 
 // Create two tight clusters and test the scores for a model with 1 centroid 
@@ -466,7 +399,7 @@ func TestBIC(t *testing.T) {
 //        *  +  *
 //           *
 //
-func TestBicCompt(t *testing.T) {
+func TestBic(t *testing.T) {
 	R, M := DATAPOINTS.GetSize()
 	Rn := []int{R} // for testing a model without a parent
 	K := 1
@@ -525,4 +458,4 @@ func TestBicCompt(t *testing.T) {
 	if bic1 >= bic2 {
 		t.Errorf("TestBicComp: bic2 should be greater than bic1, but received bic1=%f and bic2=%f", bic1, bic2)
 	}
-}*/
+}
