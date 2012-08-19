@@ -518,7 +518,7 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // R = |D|
 // R_n = |D_n|
 // M = # of dimensions
-// V = unbiased variance of D
+// V = unbiased variance of Dn
 // K = number of centroids under consideration.
 //
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
@@ -526,30 +526,21 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // N.B. When applying this to a model with no parent cluster as in evaluating 
 // the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.
 //
-// Refer to Notes on Bayesian Information Criterion Calculation equation 23.
+// Refer to Notes on Bayesian Information Criterion Calculation equation.
 //
-// ^         __ K                        RM                      1         
-//l (D)  =  \          R logR  - RlogR - -- log(2Pi  *  Var)  -  - (R - K)
-//          /__ n = 1   n    n            2                      2         
+//   Rn   Rn * M                   Rn - K                           
+// - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR)
+//    2      2                        2                             
 //
-func loglikelih(variance float64, K, M, R int, Rn []float64) float64 {
-//	fmt.Println(variance, K, M, R, Rn)
-	t2 := float64(R) * math.Log(float64(R))
-//	fmt.Printf("t2=%f\n", t2)
-	t3 := ((float64(R) * float64(M)) / 2.0)  * math.Log(2.0 * math.Pi * variance)
-//	fmt.Printf("t3=%f\n",t3)
-	t4 := (1.0 / 2.0) * (float64(R) - float64(K))
-//	fmt.Printf("t4=%f\n", t4)
-	ts := t2 - t3 - t4
-//	fmt.Printf("ts=%f\n", ts)
-
+func loglikelih(K, M, R int, Rn []int, variance []float64) float64 {
 	ll := float64(0)
-	for n := 0; n < int(len(Rn)); n++ {
-		t1 := Rn[n] * math.Log(Rn[n])
-//		fmt.Printf("t1=%f\n",t1)
-		s := t1 - ts
-//		fmt.Printf("s=%f\n",s)
-		ll += s
+	for i := 0; i < int(len(Rn)); i++ {
+		fRn := float64(Rn[i])
+		t1 := (fRn / 2.0) * math.Log(2.0 * math.Pi)
+		t2 := ((fRn * float64(M)) / 2.0) * math.Log(variance[i])
+		t3 := (fRn - float64(K)) / 2.0
+		t4 := fRn * math.Log(fRn) - fRn * math.Log(float64(R))
+		ll += (-t1 - t2 - t3 + t4)
 	}
 	return ll
 }
@@ -591,3 +582,4 @@ func freeparams(K, M int) int {
 func bic(loglikeh float64, numparams, R int) (float64) {
 	return loglikeh - (float64(numparams) / 2.0) - math.Log(float64(R))
 }
+

@@ -10,8 +10,8 @@ import (
 	"goxmeans/matutil"
 )
 
-var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.275154,2.957587,
-	-3.344465,2.603513,
+var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.0,2.0,
+	-3.0,2.0,
 	0.355083,-3.376585,
 	1.852435,3.547351,
 	-2.078973,2.552013,
@@ -20,12 +20,12 @@ var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.275154,2.957587,
 	-3.087776,2.878713,
 	-1.565978,-1.256985,
 	2.441611,0.444826,
-	103.29,209.6594,
-	125.93,230.3988}, 12, 2)
+	10.29,20.6594,
+	12.93,23.3988}, 12, 2)
 
-var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 46.57890839,   11.95938243,
-    67.54513486,  134.19858589,
-    81.16283573,   95.83181046}, 3, 2)
+var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 4.5,   11.3,
+    6.1,  12.0,
+    12.1,   9.6}, 3, 2)
 
 func makeClusterAssessment(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseMatrix {
 	r, c := datapoints.GetSize()
@@ -34,20 +34,20 @@ func makeClusterAssessment(datapoints, centroids *matrix.DenseMatrix) *matrix.De
 	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
-
 	var ed matutil.EuclidDist
-	go addPairPointCentroidJobs(jobs, datapoints, centroids, clusterAssessment, ed, results)
 
+	go addPairPointCentroidJobs(jobs, datapoints, centroids, clusterAssessment, ed, results)
+		
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
-
-    clusterChanged := assessClusters(clusterAssessment, results)
-	if clusterChanged != true {
-		fmt.Printf("makeClusterAssessment:ERROR clusterChanged = false!  clusterAssessment is not valid.\n")
+	
+	clusterChanged := assessClusters(clusterAssessment, results)
+	
+	if clusterChanged == true || clusterChanged == false {
 	}
-//	fmt.Println(clusterAssessment)
+	//fmt.Printf("clusterchanged=%v\n", clusterChanged)
 	return clusterAssessment
 }
 
@@ -338,7 +338,7 @@ func TestVariance(t *testing.T) {
 		t.Errorf("TestVariance: err = %v", err)
 	}
 
-	E := 3873.760402
+	E := 145.479298
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(v - na) 
@@ -355,19 +355,19 @@ func TestLogLikelih(t *testing.T) {
 	// Model D
 	K := 5
 	R, M := DATAPOINTS.GetSize()
-	Rn := []float64{float64(R)} // for testing a model without a parent
+	Rn := []int{R} // for testing a model without a parent
 	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
 
-	V, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
+	var1, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
 	if err != nil {
 		t.Errorf("TestLogLikeli: variance returned err=%v", err)
 	}
-
-	ll := loglikelih(V, K, M, R, Rn)
+	Vn := []float64{var1}
+	ll := loglikelih(K, M, R, Rn, Vn)
 
 	epsilon := .000001
-	E := 130.122118
+	E := -79.711489
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(ll - na) 
 
@@ -381,29 +381,32 @@ func TestBIC(t *testing.T) {
 	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
 	R, M := DATAPOINTS.GetSize()
-	K := 6
-	Rn := []float64{float64(R)} // for testing a model without a parent
-	variance, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
+	K, _ := CENTROIDS.GetSize()
+	Rn := []int{R} // for testing a model without a parent
 	numparams := freeparams(K, M)
+
+	variance, err := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
 	if err != nil {
 		t.Errorf("TestBIC: variance returned err=%v", err)
 	}
-	loglikeh := loglikelih(variance, K, M, R, Rn)
+	Vn := []float64{variance}
+	
+	loglikeh := loglikelih(K, M, R, Rn, Vn)
 
 	bic := bic(loglikeh, numparams, R)
 	
-	E := 119.987020
+	E := -84.680623
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(bic - na) 
 
 	if diff > epsilon {
 		t.Errorf("TestBIC: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
-	}
+ 	}
 /*
 	// {Dn0, Dn1} with parent D (bisection)
 	K = 2
- datapoints_n0 := matrix.Zeros(R/2, M)
+	datapoints_n0 := matrix.Zeros(R/2, M)
 	for i := 0; i < R/2; i++ {
 		for j := 0; j < M; j++ {
 			datapoints_n0.Set(i, j, DATAPOINTS.Get(i, j))
@@ -436,3 +439,90 @@ func TestBIC(t *testing.T) {
 	}
 */
 }
+
+// Create two tight clusters and test the scores for a model with 1 centroid 
+// that is equidistant between the two and a model with 2 centroids where 
+// the centroids are in the center of each cluster.
+// 
+// The BIC of the second should always be better.
+//
+//Model 1
+//                                     *
+//                                  *     *
+//                                     *
+//                        +
+//
+//           *
+//        *     *
+//           *
+//
+//Model 2
+//                                     *
+//                                  *  +  *
+//                                     *
+//                        
+//
+//           *
+//        *  +  *
+//           *
+//
+func TestBicCompt(t *testing.T) {
+	R, M := DATAPOINTS.GetSize()
+	Rn := []int{R} // for testing a model without a parent
+	K := 1
+
+	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7}, 8,2)
+	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
+	clusterAssessment := makeClusterAssessment(datapoints, centroid)
+	var ed matutil.EuclidDist
+	
+	v1, err := variance(datapoints, centroid, clusterAssessment, 1, ed)
+	if err != nil {
+		t.Errorf("v1 err=%v", err)
+	}
+//	fmt.Printf("var1=%f\n", v1)
+
+	numparams := freeparams(K, M)
+	if err != nil {
+		t.Errorf("TestBicComp: for model 1 variance returned err=%v", err)
+	}
+
+	Vn1 := []float64{v1}
+	loglikeh1 := loglikelih(K, M, R, Rn, Vn1)
+//	fmt.Printf("loglikelihood1 = %f\n", loglikeh1)
+
+	bic1 := bic(loglikeh1, numparams, R)
+//	fmt.Printf("bic1=%f\n", bic1)
+	
+	// Model 2
+	K2 := 2
+	Rn = []int{1, 1} 
+	newcents := matrix.MakeDenseMatrix([]float64{2,3,9,7}, 2,2)
+	newca := makeClusterAssessment(datapoints, newcents)
+	numparams2 := freeparams(K, M)
+
+	Vn2 := make([]float64, 2)
+	v2_0, err := variance(datapoints, newcents, newca, 2, ed)
+	if err != nil {
+		t.Errorf("v2_0 err=%v", err)
+	}
+//	fmt.Printf("var2_0=%f\n", v2_0)
+	Vn2[0] = v2_0
+
+	v2_1, err := variance(datapoints, newcents, newca, 2, ed)
+	if err != nil {
+		t.Errorf("v2_1 err=%v", err)
+	}
+//	fmt.Printf("var2_1=%f\n", v2_1)
+	Vn2[1] = v2_1
+
+	loglikeh2 := loglikelih(K2, M, R, Rn, Vn2)
+//	fmt.Printf("loglikelihood2 = %f\n", loglikeh2)
+
+	bic2 := bic(loglikeh2, numparams2, R)
+//	fmt.Printf("bic2=%f\n", bic2)
+
+	if bic1 >= bic2 {
+		t.Errorf("TestBicComp: bic2 should be greater than bic1, but received bic1=%f and bic2=%f", bic1, bic2)
+	}
+}*/
