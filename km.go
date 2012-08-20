@@ -60,6 +60,24 @@ type EllipseCentroids struct {
 	frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
 }
 
+// clusterstat denotes the statistics for an individual cluster
+type cluster struct {
+	points *matrix.DenseMatrix
+	centroids  *matrix.DenseMatrix
+	dim int // number of dimensions
+	variance float64
+}
+
+func (c cluster) numpoints() int {
+	r, _ := c.points.GetSize()
+	return r
+}
+
+func (c cluster) numcentroids() int {
+	r, _ := c.centroids.GetSize()
+	return r
+}
+
 // Load loads a tab delimited text file of floats into a slice.
 func Load(fname string) (*matrix.DenseMatrix, error) {
 	z := matrix.Zeros(1,1)
@@ -455,11 +473,10 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 //
 // where i indexes the individual points.  
 //
-// N.B. mu_i denotes the coordinates of the centroid closest to the i-th data point.  Not
+// N.B. mu_(i) denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
-func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) float64 {
-	rows, _ := points.GetSize()
-	R := rows
+/*func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, measurer matutil.VectorMeasurer) float64 {
+	R, _ := points.GetSize()
 
 	// Sum over all points (point_i - mean(i))^2
 	sum := float64(0)
@@ -474,6 +491,22 @@ func variance(points, centroids, clusterAssessment  *matrix.DenseMatrix, K int, 
 
 	return variance
 }
+*/
+
+func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
+	sum := float64(0)
+	for i := 0; i < c.numpoints(); i++ {
+		p := c.points.GetRowVector(i)
+		mu_i := c.centroids.GetRowVector(0)
+		dist := measurer.CalcDist(mu_i, p)
+		sum += math.Pow(dist, 2) 
+	}
+	variance := float64((1.0 / (float64(c.numpoints()) - float64(c.dim)))) * sum
+
+	return variance
+}
+
+
 
 // pointProb calculates the probability of an individual point.
 //
@@ -528,18 +561,18 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation.
 //
-//   Rn   Rn * M                   Rn - K                           
-// - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR)
-//    2      2                        2                             
-//
-func loglikelih(K, M, R int, Rn []int, variance []float64) float64 {
+// __ K       Rn   Rn * M                   Rn - K                           
+// \       - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR)
+// /_ n=1     2      2                        2                             
+func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
-	for i := 0; i < int(len(Rn)); i++ {
-		fRn := float64(Rn[i])
+	for i := 0; i < int(len(c)); i++ {
+		fRn := float64(c[i].numpoints())
 		t1 := (fRn / 2.0) * math.Log(2.0 * math.Pi)
-		t2 := ((fRn * float64(M)) / 2.0) * math.Log(variance[i])
-		t3 := (fRn - float64(K)) / 2.0
+		t2 := ((fRn * float64(c[i].dim)) / 2.0) * math.Log(c[i].variance)
+		t3 := (fRn - float64(c[i].numcentroids())) / 2.0
 		t4 := fRn * math.Log(fRn) - fRn * math.Log(float64(R))
+
 		ll += (-t1 - t2 - t3 + t4)
 	}
 	return ll
@@ -564,7 +597,7 @@ func freeparams(K, M int) int {
 //
 // R = |D|
 //
-// M = number of dimesions assuming a spherical Gaussians
+// M = number of dimesions assuming spherical Gaussians
 //
 // p_j = number of parameters in Mj
 //
@@ -578,7 +611,7 @@ func freeparams(K, M int) int {
 // BIC(M )  =  l (D)  -  -- * logR
 //      j       j         2       
 //
-func bic(loglikeh float64, numparams, R int) (float64) {
-	return loglikeh - (float64(numparams) / 2.0) - math.Log(float64(R))
+func bic(loglikelih float64, numparams, R int) (float64) {
+	return loglikelih - (float64(numparams) / 2.0) - math.Log(float64(R))
 }
 

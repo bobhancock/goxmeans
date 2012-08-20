@@ -27,6 +27,15 @@ var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 4.5,   11.3,
     6.1,  12.0,
     12.1,   9.6}, 3, 2)
 
+var DATAPOINTS_D = matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7}, 8,2)
+var CENTROIDS_D = matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
+
+var DATAPOINTS_D0 = matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3}, 4,2)
+var CENTROID_D0 =  matrix.MakeDenseMatrix([]float64{3,3}, 1,2) 
+
+var DATAOINTS_D1 = matrix.MakeDenseMatrix( []float64{8,7, 9,6, 9,8, 10,7}, 4,2)
+var CENTROID_D1 =  matrix.MakeDenseMatrix([]float64{9,7}, 1,2) 
+
 func makeClusterAssessment(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseMatrix {
 	r, c := datapoints.GetSize()
 	clusterAssessment := matrix.Zeros(r, c)
@@ -329,13 +338,13 @@ func TestFreeparams(t *testing.T) {
 }
 
 func TestVariance(t *testing.T) {
-	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
 	var ed matutil.EuclidDist
-
+	_, dim := DATAPOINTS_D.GetSize()
 	// Model D
-	v := variance(DATAPOINTS, CENTROIDS, clusterAssessment, 1, ed)
-
-	E := 145.479298
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0}
+	v := variance(c, ed)
+	
+	E := 24.000
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(v - na) 
@@ -343,29 +352,82 @@ func TestVariance(t *testing.T) {
 	if diff > epsilon {
 		t.Errorf("TestVariance: for model D excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v, diff, epsilon)
 	}
+
+	// Variance a cluster with a perfectly centered centroids
+	_, dim0 := DATAPOINTS_D0.GetSize()
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0}
+	v0 := variance(c0, ed)
+	
+	E = 2.00
+	na = math.Nextafter(E, E + 1) 
+	diff = math.Abs(v0 - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestVariance: for model D excpected %f but received %f.  The difference %f exceeds epsilon %f.", E, v0, diff, epsilon)
+	}
 }
 
+/*
 func TestLogLikelih(t *testing.T) {
 	// Model D
-	K := 5
-	R, M := DATAPOINTS.GetSize()
-	Rn := []int{R} // for testing a model without a parent
-	clusterAssessment := makeClusterAssessment(DATAPOINTS, CENTROIDS)
-	var ed matutil.EuclidDist
+	R, M := DATAPOINTS_D.GetSize()
+	K, _ := CENTROIDS_D.GetSize()
 
-	var1 := variance(DATAPOINTS, CENTROIDS, clusterAssessment, K, ed)
-	Vn := []float64{var1}
-	ll := loglikelih(K, M, R, Rn, Vn)
+	clusterAssessment := makeClusterAssessment(DATAPOINTS_D, CENTROIDS_D)
+	var ed matutil.EuclidDist
+	vari := variance(DATAPOINTS_D, CENTROIDS_D, clusterAssessment, K, ed)
+
+	cs := make([]cluster, 1)
+	cs[0] = cluster{DATAPOINTS_D, CENTROIDS_D, clusterAssessment, M, vari}
+
+	ll := loglikelih(R, cs)
 
 	epsilon := .000001
-	E := -79.711489
+	E := -35.042733
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(ll - na) 
 
 	if diff > epsilon {
 		t.Errorf("TestLoglikeli: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
 	}
+
+	// Model Dn with two cluster with one centroid each
+	K = 1
+	datapoints_0, err := DATAPOINTS_D.FiltCol(0,4, 0)
+	if err != nil {
+		t.Errorf("TestLoglikelih: FiltCol for datapoints_0 err=%v", err)
+	}
+
+	centroids_0 := matrix.MakeDenseMatrix([]float64{2.0,3.0}, 1,2)
+	clusterAssessment_0 := makeClusterAssessment(datapoints_0, centroids_0)
+	var0 := variance(datapoints_0, centroids_0, clusterAssessment_0, K, ed)
+	cluster_0 := cluster{datapoints_0, centroids_0, clusterAssessment_0, M, var0}
+
+
+	datapoints_1, err := DATAPOINTS_D.FiltCol(5, 100, 0)
+	if err != nil {
+		t.Errorf("TestLoglikelih: FiltCol for datapoints_1 err=%v", err)
+	}
+
+	centroids_1 := matrix.MakeDenseMatrix([]float64{9.0,7.0}, 1,2)
+	clusterAssessment_1 := makeClusterAssessment(datapoints_1, centroids_1)
+	var1 := variance(datapoints_1, centroids_1, clusterAssessment_1, K, ed)
+	cluster_1 := cluster{datapoints_1, centroids_1, clusterAssessment_1, M, var1}
+
+	cs_n := []cluster{cluster_0, cluster_1}
+
+	ll_n := loglikelih(R, cs_n)
+
+	E = -20.970731
+	na = math.Nextafter(E, E + 1) 
+	diff = math.Abs(ll_n - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestLoglikeli: For model Dn expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll_n, diff, epsilon)
+	}
+	
 }
+*/
 
 // Create two tight clusters and test the scores for a model with 1 centroid 
 // that is equidistant between the two and a model with 2 centroids where 
@@ -393,50 +455,50 @@ func TestLogLikelih(t *testing.T) {
 //        *  +  *
 //           *
 //
-func TestBic(t *testing.T) {
+/*func TestBic(t *testing.T) {
 	R, M := DATAPOINTS.GetSize()
-	Rn := []int{R} // for testing a model without a parent
+//	Rn := []int{R} // for testing a model without a parent
 	K := 1
 
-	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7}, 8,2)
-	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
-	clusterAssessment := makeClusterAssessment(datapoints, centroid)
+	clusterAssessment := makeClusterAssessment(DATAPOINTS_D, CENTROIDS_D)
+	numparams := freeparams(K, M)
 	var ed matutil.EuclidDist
-	
-	v1 := variance(datapoints, centroid, clusterAssessment, 1, ed)
+	vari := variance(DATAPOINTS_D, CENTROIDS_D, clusterAssessment, 1, ed)
 //	fmt.Printf("var1=%f\n", v1)
 
-	numparams := freeparams(K, M)
-	Vn1 := []float64{v1}
-	loglikeh1 := loglikelih(K, M, R, Rn, Vn1)
+	c := []cluster{cluster{DATAPOINTS_D, CENTROIDS_D, clusterAssessment, M, vari}}
+	loglikeh1 := loglikelih(R, c)
 //	fmt.Printf("loglikelihood1 = %f\n", loglikeh1)
 
 	bic1 := bic(loglikeh1, numparams, R)
 //	fmt.Printf("bic1=%f\n", bic1)
 	
 	// Model 2
-	K2 := 2
-	Rn = []int{1, 1} 
-	newcents := matrix.MakeDenseMatrix([]float64{2,3,9,7}, 2,2)
-	newca := makeClusterAssessment(datapoints, newcents)
-	numparams2 := freeparams(K, M)
+	K = 1
+	numparamsnew := freeparams(K, M)
 
-	Vn2 := make([]float64, 2)
-	v2_0 := variance(datapoints, newcents, newca, 2, ed)
-//	fmt.Printf("var2_0=%f\n", v2_0)
-	Vn2[0] = v2_0
+	datapoints_0 := matrix.MakeDenseMatrix([]float64{2,3, 3,2, 3,4, 4,3},  4,2 )
+	datapoints_1 := matrix.MakeDenseMatrix( []float64{8,7, 9,6, 9,8, 10,7}, 4, 2)
+	newcents_0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
+	newcents_1 := matrix.MakeDenseMatrix([]float64{9,7}, 1,2)
+	newca := makeClusterAssessment(DATAPOINTS_D, CENTROIDS_D)
 
-	v2_1 := variance(datapoints, newcents, newca, 2, ed)
-//	fmt.Printf("var2_1=%f\n", v2_1)
-	Vn2[1] = v2_1
+	v0 := variance(datapoints_0, newcents_0, newca,1,  ed)
+	v1 := variance(datapoints_1, newcents_1, newca, 1, ed)
+	fmt.Println(v0, v1)
+	cnew := make([]cluster, 2)
+	cnew[0] = cluster{datapoints_0, newcents_0, newca, M, v0}
+	cnew[1] = cluster{datapoints_1, newcents_1, newca, M, v1}
 
-	loglikeh2 := loglikelih(K2, M, R, Rn, Vn2)
+	loglikehnew := loglikelih(R, cnew)
 //	fmt.Printf("loglikelihood2 = %f\n", loglikeh2)
 
-	bic2 := bic(loglikeh2, numparams2, R)
+	bic2 := bic(loglikehnew, numparamsnew, R)
 //	fmt.Printf("bic2=%f\n", bic2)
 
 	if bic1 >= bic2 {
 		t.Errorf("TestBicComp: bic2 should be greater than bic1, but received bic1=%f and bic2=%f", bic1, bic2)
 	}
+
 }
+*/
