@@ -486,7 +486,7 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 // N.B. mu_(i) denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
 //
-// TODO would it be more efficient to calculate it one pass instead of pre-calculating the
+// TODO would it be more efficient to calculate it in one pass instead of pre-calculating the
 // mean?  Or will we always have to pre-calc to fill the cluster?
 //   1    __  2       1    / __    \2 
 // ----- \   x  - -------- |\   x  |  
@@ -514,7 +514,12 @@ func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 // V = variance of D
 // mu(i) =  the coordinates of the centroid closest to the i-th data point.
 //
-// P(x_i) = [ (Ri / R) * (1 / (sqrt(2 * Pi) * stddev^M) ]^(-(1/2 * sqrt(V) * ||x_i - mean(i)||^2)
+//           /R                    \                                       
+//           | (i)          1      |   /         1                     2\  
+// P(x )  =  |---- * --------------|exp| - ------------} * ||x  - mu || |  
+//    i      |  R    2 ___________M|   \   2 * variance       i     i   /  
+//           \       |/Pi * stddev /                                       
+//
 //
 // This is just the probability that a point exists (Ri / R) times the normal, or Gaussian,  distribution 
 // for the number of dimensions.
