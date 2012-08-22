@@ -564,10 +564,12 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation.
 //
-// __ K      Rn   Rn * M                   Rn - K                           
-// \       - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR)
-// /_ n=1     2      2   
-//                     2                             
+//         /                                                                  \
+// __ K    |   Rn   Rn * M                   Rn - K                            |
+// \       | - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR) |
+// /_ n=1  |    2      2                       2                               |
+//         \                                                                  /
+//
 func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
 	for i := 0; i < int(len(c)); i++ {
