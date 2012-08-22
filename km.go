@@ -298,31 +298,28 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 	w := io.Writer(fp)
 	log.SetOutput(w)
 
-//	centroids := cc.ChooseCentroids(datapoints, k)
-//DEBUG START
-	centroids := matrix.MakeDenseMatrix( []float64{3,3,9,7}, 2,2) //DEBUG
-//DEBUG END
-//	fmt.Printf("kmeansp: datapoints=%v\n", datapoints)
+	centroids := cc.ChooseCentroids(datapoints, k)
 	
 	numRows, numCols := datapoints.GetSize()
 	clusterAssessment := matrix.Zeros(numRows, numCols)
 
-// TODO Job channel is closed in first iteration of loop and second iteration fails.
 	clusterChanged := true
 	for ; clusterChanged == true ; {
 		clusterChanged = false
+
 		jobs := make(chan PairPointCentroidJob, numworkers)
 		results := make(chan PairPointCentroidResult, minimum(1024, numRows))
 		done := make(chan int, numworkers)
+
 		// Pair each point with its closest centroid.
 		go addPairPointCentroidJobs(jobs, datapoints, centroids, clusterAssessment, measurer, results)
 		for i := 0; i < numworkers; i++ {
 			go doPairPointCentroidJobs(done, jobs)
 		}
 		go awaitPairPointCentroidCompletion(done, results)
+
 		clusterChanged = assessClusters(clusterAssessment, results) // This blocks so that all the results can be processed
-		fmt.Printf("kmeansp: clusterChanged=%v\n", clusterChanged)
-		//fmt.Printf("kmeansp:clusterAssessment=%v\n", clusterAssessment)
+//		fmt.Printf("kmeansp: clusterChanged=%v\n", clusterChanged)
 		
 		// Now that you have each data point grouped with a centroid,
 		for cent := 0; cent < k; cent++ {
@@ -330,7 +327,6 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 			// Get the corresponding row vector from datapoints and place it in pointsInCluster.
 			//fmt.Printf("kmeansp: cent=%d: clusterAss=%v\n", cent, clusterAssessment)
 			matches, err :=	clusterAssessment.FiltColMap(float64(cent), float64(cent), 0)  
-			//fmt.Printf("kmeansp: cent=%d: matches=%v\n", cent, matches)
 
 			// matches - a map[int]float64 where the key is the row number in source 
 			//matrix  and the value is the value in the column of the source matrix 
@@ -352,7 +348,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 				pointsInCluster.Set(i, 1, datapoints.Get(int(rownum), 1))
 				i++
 			}
-			fmt.Printf("kmeansp: cent=%d pointsInCluster=%v\n", cent, pointsInCluster)
+//			fmt.Printf("kmeansp: cent=%d pointsInCluster=%v\n", cent, pointsInCluster)
 			// pointsInCluster now contains all the data points for the current 
 			// centroid.  The mean of the coordinates for this cluster becomes 
 			// the new centroid for this cluster.

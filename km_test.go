@@ -185,21 +185,69 @@ func TestKmeansp(t *testing.T) {
 
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
 
-	centroidMeans, centroidSqDist, err := Kmeansp(datapoints, 2, cc, ed)
+	centroids, clusterAssessment, err := Kmeansp(datapoints, 2, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
 	}
 
-/*	if 	a, b := centroidMeans.GetSize(); a == 0 || b == 0 {
-		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
+	centrow0 := centroids.GetRowVector(0)
+	x := centrow0.Get(0,0)
+	expect := 3.0
+	if x != expect {
+		t.Error("TestKmeansp: first centroid x coordinate is %f instead of %f.", x, expect)
 	}
 
-	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
-		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
-	}*/
-	fmt.Printf("centroidMeans=%v\nb", centroidMeans)
-	fmt.Printf("centroidSqDist=%v\n", centroidSqDist)
+	y := centrow0.Get(0,1)
+	expect = 3.4
+	if y != expect {
+		t.Error("TestKmeansp: first centroid y coordinate is %f instead of %f.", x, expect)
+	}
+
+	centrow1 := centroids.GetRowVector(1)
+	x = centrow1.Get(0,0)
+	expect = 9.0
+	if x != expect {
+		t.Error("TestKmeansp: second centroid x coordinate is %f instead of %f.", x, expect)
+	}
+
+	y = centrow1.Get(0,1)
+	expect = 7.0
+	if y != expect {
+		t.Error("TestKmeansp: second centroid y coordinate is %f instead of %f.", x, expect)
+	}
+
+	// Expected values
+	ca :=  matrix.MakeDenseMatrix( []float64{0, 1.16,
+		0, 1.96,
+		0, 0.36,
+		0, 1.16,
+		1,    1,
+		1,    1,
+		1,    1,
+		1,    1,
+		0, 2.56}, 9,2)
+
+	numrows, _ := ca.GetSize()
+	epsilon := .000001
+
+	for i := 0; i < numrows; i++ {
+		cacent := ca.Get(i,0)
+		returncent := clusterAssessment.Get(i, 0)
+		if returncent != cacent {
+			t.Error("TestKmeansp: clusterAssessment(%d, 0) centroid should be %f but is %f.", i, cacent, float64(returncent))
+		}
+
+		cadist := ca.Get(i,1)
+		returndist := clusterAssessment.Get(i, 1)
+		E := cadist
+		na := math.Nextafter(E, E + 1) 
+		diff := math.Abs(returndist - na) 
+
+		if diff > epsilon {
+			t.Error("TestKmeansp: clusterAssessment(%d, 1) distance should be %f but is %f.", i, cadist, returndist)
+		}
+	}
 }
    
 func TestAddPairPointToCentroidJob(t *testing.T) {
