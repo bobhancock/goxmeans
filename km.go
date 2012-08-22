@@ -554,7 +554,7 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //
 // D = total set of points which belong to the centroids under consideration.
 // R = |D|
-// R_n = |D_n|
+// R-n = |D-n| - n is the nth cluster in the model.
 // M = # of dimensions
 // V = unbiased variance of Dn
 // K = number of centroids under consideration.
@@ -565,12 +565,14 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation.
+// N.B. n is actually a subscript but was written this way to make the equation
+//      legible.
 //
-//         /                                                                  \
-// __ K    |   Rn   Rn * M                   Rn - K                            |
-// \       | - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR) |
-// /_ n=1  |    2      2                       2                               |
-//         \                                                                  /
+//         /                                                                              \
+// __ K    |    R_n     R_n * M                     R_n - K                                |
+// \       | -  ---  -  -------  * log(variance) - --------  + (R_n * logR_n - R_n * logR) |
+// /_ n=1  |     2        2                           2                                    |
+//         \                                                                              /
 //
 func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
