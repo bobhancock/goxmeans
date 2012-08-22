@@ -21,13 +21,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"runtime"
+//	"runtime"
 	"log"
 	"github.com/bobhancock/gomatrix/matrix"
 	"goxmeans/matutil"
 )
 
-var numworkers = runtime.NumCPU()
+//var numworkers = runtime.NumCPU()
+var numworkers = 1
 
 // minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
@@ -60,10 +61,10 @@ type EllipseCentroids struct {
 	frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
 }
 
-// clusterstat denotes the statistics for an individual cluster
+// cluster models an individual cluster with one centroid.
 type cluster struct {
 	points *matrix.DenseMatrix
-	centroids  *matrix.DenseMatrix
+	centroid  *matrix.DenseMatrix
 	dim int // number of dimensions
 	variance float64
 }
@@ -74,7 +75,7 @@ func (c cluster) numpoints() int {
 }
 
 func (c cluster) numcentroids() int {
-	r, _ := c.centroids.GetSize()
+	r, _ := c.centroid.GetSize()
 	return r
 }
 
@@ -229,8 +230,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 
 type Kmodel struct {
 	BIC float64
-	centroids *matrix.DenseMatrix
-	clusterAssessment *matrix.DenseMatrix
+	clusters []cluster
 }
 
 // Kmeansmodels runs k-means for k lower bound to k upper bound.
@@ -298,7 +298,9 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 	w := io.Writer(fp)
 	log.SetOutput(w)
 
-	centroids := cc.ChooseCentroids(datapoints, k)
+//	centroids := cc.ChooseCentroids(datapoints, k)
+	centroids := matrix.MakeDenseMatrix( []float64{3,3,9,7}, 2,2)
+	fmt.Printf("centroids=%v\n", centroids)
 	numRows, numCols := datapoints.GetSize()
 	clusterAssessment := matrix.Zeros(numRows, numCols)
 
@@ -316,13 +318,17 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 		}
 		go awaitPairPointCentroidCompletion(done, results)
 		clusterChanged = assessClusters(clusterAssessment, results) // This blocks so that all the results can be processed
+		fmt.Printf("clusterChanged=%v\n", clusterChanged)
+		fmt.Printf("clusterAssessment=%v\n", clusterAssessment)
 		
 		// Now that you have each data point grouped with a centroid,
 		for cent := 0; cent < k; cent++ {
 			// Select all the rows in clusterAssessment whose first col value == cent.
 			// Get the corresponding row vector from datapoints and place it in pointsInCluster.
-			// TODO Would it be better to return a slice and use that to create the matrix?
+			fmt.Printf("%d: clusterAss=%v\n", cent, clusterAssessment)
 			matches, err :=	clusterAssessment.FiltColMap(float64(cent), float64(cent), 0)  
+			fmt.Printf("%d: matches=%v\n", cent, matches)
+
 			// matches - a map[int]float64 where the key is the row number in source 
 			//matrix  and the value is the value in the column of the source matrix 
 			//specified by col.
@@ -337,29 +343,31 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 
 			pointsInCluster := matrix.Zeros(len(matches), numCols) 
 			for d, rownum := range matches {
+				fmt.Printf("%d: %d  %f\n", cent, d, rownum)
 				pointsInCluster.Set(d, 0, datapoints.Get(int(rownum), 0))
 				pointsInCluster.Set(d, 1, datapoints.Get(int(rownum), 1))
 			}
-			
+			fmt.Printf("%d: pointsInCluster=%v\n", cent, pointsInCluster)
 			// pointsInCluster now contains all the data points for the current 
 			// centroid.  The mean of the coordinates for this cluster becomes 
 			// the new centroid for this cluster.
 			mean := pointsInCluster.MeanCols()
 			centroids.SetRowVector(mean, cent)
+			fmt.Printf("%d: centroids=%v\n", cent, centroids)
 		}
 	}
 	return centroids, clusterAssessment, nil
 }
 
 // CentroidPoint stores the row number in the centroids matrix and
-// the distance squared between the centroid.
+// the distance squared between the centroid and the point.
 type CentroidPoint struct {
 	centroidRunNum float64
 	distPointToCentroidSq float64
 }
 
 // PairPointCentroidJobs stores the elements that defines the job that pairs a 
-// set of coordinates (i.e., a data point) with a centroid.
+// point (i.e., a data point) with a centroid.
 type PairPointCentroidJob struct {
 	point, centroids, clusterAssessment *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
@@ -428,6 +436,8 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 	// Find the centroid that is closest to this point.
     for j := 0; j < k; j++ { 
      	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+		// START HERE
+		fmt.Printf("j=%d centroid=%v  point=%v  distJ=%v\n", j, job.centroids.GetRowVector(j), job.point, distJ)
         if distJ  < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
@@ -475,11 +485,18 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 //
 // N.B. mu_(i) denotes the coordinates of the centroid closest to the i-th data point.  Not
 // the mean of the entire cluster.
+//
+// TODO would it be more efficient to calculate it one pass instead of pre-calculating the
+// mean?  Or will we always have to pre-calc to fill the cluster?
+//   1    __  2       1    / __    \2 
+// ----- \   x  - -------- |\   x  |  
+// R - K /__  i          2 \/__  i /  
+//                (R - K)             
 func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 	sum := float64(0)
 	for i := 0; i < c.numpoints(); i++ {
 		p := c.points.GetRowVector(i)
-		mu_i := c.centroids.GetRowVector(0)
+		mu_i := c.centroid.GetRowVector(0)
 		dist := measurer.CalcDist(mu_i, p)
 		sum += math.Pow(dist, 2) 
 	}
@@ -487,7 +504,6 @@ func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 
 	return variance
 }
-
 
 
 // pointProb calculates the probability of an individual point.
@@ -543,9 +559,10 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation.
 //
-// __ K       Rn   Rn * M                   Rn - K                           
+// __ K      Rn   Rn * M                   Rn - K                           
 // \       - -- - ------ * log(variance) - ------ + (Rn * logRn - Rn * logR)
-// /_ n=1     2      2                        2                             
+// /_ n=1     2      2   
+//                     2                             
 func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
 	for i := 0; i < int(len(c)); i++ {

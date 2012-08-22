@@ -174,30 +174,30 @@ func TestComputeCentroid(t *testing.T) {
 
 
 func TestKmeansp(t *testing.T) {
-	dataPoints, err := Load("./testSetSmall.txt")
-	if err != nil {
-		t.Errorf("Load returned: %v", err)
-		return
-	}
+//	dataPoints, err := Load("./testSetSmall.txt")
+//	if err != nil {
+//		t.Errorf("Load returned: %v", err)
+//		return
+//	}
 	
 	var ed matutil.EuclidDist
 	var cc RandCentroids
-	//centroidsdata := []float64{1.5,1.5,2,2,3,3,0.9,0,9}
-	//centroids := matrix.MakeDenseMatrix(centroidsdata, 4,2)
 
-	centroidMeans, centroidSqDist, err := Kmeansp(dataPoints, 4, cc, ed)
+	centroidMeans, centroidSqDist, err := Kmeansp(DATAPOINTS_D, 2, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
 	}
 
-	if 	a, b := centroidMeans.GetSize(); a == 0 || b == 0 {
+/*	if 	a, b := centroidMeans.GetSize(); a == 0 || b == 0 {
 		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
 	}
 
 	if c, d := centroidSqDist.GetSize(); c == 0 || d == 0 {
 		t.Errorf("Kmeans centroidSqDist is of size %d, %d.", c,d)
-	}
+	}*/
+	fmt.Printf("centroidMeans=%v\nb", centroidMeans)
+	fmt.Printf("centroidSqDist=%v\n", centroidSqDist)
 }
    
 func TestAddPairPointToCentroidJob(t *testing.T) {
