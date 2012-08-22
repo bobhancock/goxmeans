@@ -443,6 +443,7 @@ func (job PairPointCentroidJob) PairPointCentroid() {
             centroidRowNum = float64(j)
 		} 
  		squaredErr = math.Pow(distPointToCentroid, 2)
+		fmt.Printf("squaredErr=%f\n", squaredErr)
 	}	
 	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
 }
@@ -488,10 +489,12 @@ func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matuti
 //
 // TODO would it be more efficient to calculate it in one pass instead of pre-calculating the
 // mean?  Or will we always have to pre-calc to fill the cluster?
+//
 //   1    __  2       1    / __    \2 
 // ----- \   x  - -------- |\   x  |  
 // R - K /__  i          2 \/__  i /  
-//                (R - K)             
+//                (R - K)      
+//       
 func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 	sum := float64(0)
 	for i := 0; i < c.numpoints(); i++ {
@@ -504,7 +507,6 @@ func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 
 	return variance
 }
-
 
 // pointProb calculates the probability of an individual point.
 //
