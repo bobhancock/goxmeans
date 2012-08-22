@@ -183,7 +183,9 @@ func TestKmeansp(t *testing.T) {
 	var ed matutil.EuclidDist
 	var cc RandCentroids
 
-	centroidMeans, centroidSqDist, err := Kmeansp(DATAPOINTS_D, 2, cc, ed)
+	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
+
+	centroidMeans, centroidSqDist, err := Kmeansp(datapoints, 2, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return

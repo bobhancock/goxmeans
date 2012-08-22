@@ -299,39 +299,42 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 	log.SetOutput(w)
 
 //	centroids := cc.ChooseCentroids(datapoints, k)
-	centroids := matrix.MakeDenseMatrix( []float64{3,3,9,7}, 2,2)
-	fmt.Printf("centroids=%v\n", centroids)
+//DEBUG START
+	centroids := matrix.MakeDenseMatrix( []float64{3,3,9,7}, 2,2) //DEBUG
+//DEBUG END
+//	fmt.Printf("kmeansp: datapoints=%v\n", datapoints)
+	
 	numRows, numCols := datapoints.GetSize()
 	clusterAssessment := matrix.Zeros(numRows, numCols)
 
-	jobs := make(chan PairPointCentroidJob, numworkers)
-	results := make(chan PairPointCentroidResult, minimum(1024, numRows))
-	done := make(chan int, numworkers)
-	
+// TODO Job channel is closed in first iteration of loop and second iteration fails.
 	clusterChanged := true
 	for ; clusterChanged == true ; {
 		clusterChanged = false
+		jobs := make(chan PairPointCentroidJob, numworkers)
+		results := make(chan PairPointCentroidResult, minimum(1024, numRows))
+		done := make(chan int, numworkers)
 		// Pair each point with its closest centroid.
-		go addPairPointCentroidJobs(jobs, datapoints, clusterAssessment, centroids, measurer, results)
+		go addPairPointCentroidJobs(jobs, datapoints, centroids, clusterAssessment, measurer, results)
 		for i := 0; i < numworkers; i++ {
 			go doPairPointCentroidJobs(done, jobs)
 		}
 		go awaitPairPointCentroidCompletion(done, results)
 		clusterChanged = assessClusters(clusterAssessment, results) // This blocks so that all the results can be processed
-		fmt.Printf("clusterChanged=%v\n", clusterChanged)
-		fmt.Printf("clusterAssessment=%v\n", clusterAssessment)
+		fmt.Printf("kmeansp: clusterChanged=%v\n", clusterChanged)
+		//fmt.Printf("kmeansp:clusterAssessment=%v\n", clusterAssessment)
 		
 		// Now that you have each data point grouped with a centroid,
 		for cent := 0; cent < k; cent++ {
 			// Select all the rows in clusterAssessment whose first col value == cent.
 			// Get the corresponding row vector from datapoints and place it in pointsInCluster.
-			fmt.Printf("%d: clusterAss=%v\n", cent, clusterAssessment)
+			//fmt.Printf("kmeansp: cent=%d: clusterAss=%v\n", cent, clusterAssessment)
 			matches, err :=	clusterAssessment.FiltColMap(float64(cent), float64(cent), 0)  
-			fmt.Printf("%d: matches=%v\n", cent, matches)
+			//fmt.Printf("kmeansp: cent=%d: matches=%v\n", cent, matches)
 
 			// matches - a map[int]float64 where the key is the row number in source 
 			//matrix  and the value is the value in the column of the source matrix 
-			//specified by col.
+			//specified by col.  Here the value is the centroid paired with the point.
 			if err != nil {
 				return matrix.Zeros(k, numCols), clusterAssessment, err
 			}
@@ -342,18 +345,20 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 			}
 
 			pointsInCluster := matrix.Zeros(len(matches), numCols) 
-			for d, rownum := range matches {
-				fmt.Printf("%d: %d  %f\n", cent, d, rownum)
-				pointsInCluster.Set(d, 0, datapoints.Get(int(rownum), 0))
-				pointsInCluster.Set(d, 1, datapoints.Get(int(rownum), 1))
+			i := 0
+			for rownum, _ := range matches {
+				//fmt.Printf("kmeansp: cent=%d centroid=%f rownum=%d\n", cent, centroid, rownum)
+				pointsInCluster.Set(i, 0, datapoints.Get(int(rownum), 0))
+				pointsInCluster.Set(i, 1, datapoints.Get(int(rownum), 1))
+				i++
 			}
-			fmt.Printf("%d: pointsInCluster=%v\n", cent, pointsInCluster)
+			fmt.Printf("kmeansp: cent=%d pointsInCluster=%v\n", cent, pointsInCluster)
 			// pointsInCluster now contains all the data points for the current 
 			// centroid.  The mean of the coordinates for this cluster becomes 
 			// the new centroid for this cluster.
 			mean := pointsInCluster.MeanCols()
 			centroids.SetRowVector(mean, cent)
-			fmt.Printf("%d: centroids=%v\n", cent, centroids)
+//			fmt.Printf("kmeansp: cent=%d centroids=%v\n", cent, centroids)
 		}
 	}
 	return centroids, clusterAssessment, nil
@@ -390,6 +395,7 @@ func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, cent
 	numRows, _ := datapoints.GetSize()
     for i := 0; i < numRows; i++ { 
 		point := datapoints.GetRowVector(i)
+//		fmt.Printf("398: i=%d numRows=%d\n",i,numRows)
 		jobs <- PairPointCentroidJob{point, centroids, clusterAssessment, results, i, measurer}
 	}
 	close(jobs)
@@ -437,13 +443,13 @@ func (job PairPointCentroidJob) PairPointCentroid() {
     for j := 0; j < k; j++ { 
      	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
 		// START HERE
-		fmt.Printf("j=%d centroid=%v  point=%v  distJ=%v\n", j, job.centroids.GetRowVector(j), job.point, distJ)
+//		fmt.Printf("PairPointCentroidJob: j=%d centroid=%v  point=%v  distJ=%v\n", j, job.centroids.GetRowVector(j), job.point, distJ)
         if distJ  < distPointToCentroid {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
 		} 
  		squaredErr = math.Pow(distPointToCentroid, 2)
-		fmt.Printf("squaredErr=%f\n", squaredErr)
+		//fmt.Printf("squaredErr=%f\n", squaredErr)
 	}	
 	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
 }
