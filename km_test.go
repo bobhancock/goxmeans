@@ -36,28 +36,28 @@ var CENTROID_D0 =  matrix.MakeDenseMatrix([]float64{3,3}, 1,2)
 var DATAPOINTS_D1 = matrix.MakeDenseMatrix( []float64{8,7, 9,6, 9,8, 10,7}, 4,2)
 var CENTROID_D1 =  matrix.MakeDenseMatrix([]float64{9,7}, 1,2) 
 
-func makeClusterAssessment(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseMatrix {
+func makeCentPointDist(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseMatrix {
 	r, c := datapoints.GetSize()
-	clusterAssessment := matrix.Zeros(r, c)
+	CentPointDist := matrix.Zeros(r, c)
 
 	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 	var ed matutil.EuclidDist
 
-	go addPairPointCentroidJobs(jobs, datapoints, centroids, clusterAssessment, ed, results)
+	go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, ed, results)
 		
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
 	
-	clusterChanged := assessClusters(clusterAssessment, results)
+	clusterChanged := assessClusters(CentPointDist, results)
 	
 	if clusterChanged == true || clusterChanged == false {
 	}
 	//fmt.Printf("clusterchanged=%v\n", clusterChanged)
-	return clusterAssessment
+	return CentPointDist
 }
 
 func TestAtof64Invalid(t *testing.T) {
@@ -185,33 +185,32 @@ func TestKmeansp(t *testing.T) {
 
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
 
-	centroids, clusterAssessment, err := Kmeansp(datapoints, 2, cc, ed)
+	clusters, err := Kmeansp(datapoints, 2, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
 	}
 
-	centrow0 := centroids.GetRowVector(0)
-	x := centrow0.Get(0,0)
+    x := clusters[0].centroid.Get(0,0)
 	expect := 3.0
 	if x != expect {
 		t.Error("TestKmeansp: first centroid x coordinate is %f instead of %f.", x, expect)
 	}
 
-	y := centrow0.Get(0,1)
+	y := clusters[0].centroid.Get(0,1)
 	expect = 3.4
 	if y != expect {
 		t.Error("TestKmeansp: first centroid y coordinate is %f instead of %f.", x, expect)
 	}
 
-	centrow1 := centroids.GetRowVector(1)
-	x = centrow1.Get(0,0)
+	
+	x = clusters[1].centroid.Get(0,0)
 	expect = 9.0
 	if x != expect {
 		t.Error("TestKmeansp: second centroid x coordinate is %f instead of %f.", x, expect)
 	}
 
-	y = centrow1.Get(0,1)
+	y = clusters[1].centroid.Get(0,1)
 	expect = 7.0
 	if y != expect {
 		t.Error("TestKmeansp: second centroid y coordinate is %f instead of %f.", x, expect)
@@ -233,19 +232,19 @@ func TestKmeansp(t *testing.T) {
 
 	for i := 0; i < numrows; i++ {
 		cacent := ca.Get(i,0)
-		returncent := clusterAssessment.Get(i, 0)
+		returncent := CentPointDist.Get(i, 0)
 		if returncent != cacent {
-			t.Error("TestKmeansp: clusterAssessment(%d, 0) centroid should be %f but is %f.", i, cacent, float64(returncent))
+			t.Error("TestKmeansp: CentPointDist(%d, 0) centroid should be %f but is %f.", i, cacent, float64(returncent))
 		}
 
 		cadist := ca.Get(i,1)
-		returndist := clusterAssessment.Get(i, 1)
+		returndist := CentPointDist.Get(i, 1)
 		E := cadist
 		na := math.Nextafter(E, E + 1) 
 		diff := math.Abs(returndist - na) 
 
 		if diff > epsilon {
-			t.Error("TestKmeansp: clusterAssessment(%d, 1) distance should be %f but is %f.", i, cadist, returndist)
+			t.Error("TestKmeansp: CentPointDist(%d, 1) distance should be %f but is %f.", i, cadist, returndist)
 		}
 	}
 }
@@ -304,52 +303,30 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 
 func TestAssessClusters(t *testing.T) {
 	r, c := DATAPOINTS.GetSize()
-	clusterAssessment := matrix.Zeros(r, c)
+	CentPointDist := matrix.Zeros(r, c)
 
 	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
 	var md matutil.ManhattanDist
-	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, clusterAssessment, md, results)
+	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, CentPointDist, md, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
 	}
 	go awaitPairPointCentroidCompletion(done, results)
 
-    clusterChanged := assessClusters(clusterAssessment, results)
+    clusterChanged := assessClusters(CentPointDist, results)
 	if clusterChanged != true {
 		t.Errorf("TestAssessClusters: clusterChanged=%b and should be true.", clusterChanged)
 	}
 
-	if clusterAssessment.Get(9, 0) != 0 || clusterAssessment.Get(10, 0) != 1 {
-		t.Errorf("TestAssessClusters: rows 9 and 10 should have 0 and 1 in column 0, but received %v", clusterAssessment)
+	if CentPointDist.Get(9, 0) != 0 || CentPointDist.Get(10, 0) != 1 {
+		t.Errorf("TestAssessClusters: rows 9 and 10 should have 0 and 1 in column 0, but received %v", CentPointDist)
 	}
 }
 
-/* TODO rewrite for new version
-func TestKmeansbi(t *testing.T) {
-	var ed matutil.EuclidDist
-	var cc RandCentroids
-
-	matCentroidlist, clusterAssignment, err := Kmeansp(DATAPOINTS, 4, cc, ed)
-	if err != nil {
-		t.Errorf("Kmeans returned: %v", err)
-		return
-	}
-
-	if 	a, b := matCentroidlist.GetSize(); a == 0 || b == 0 {
-		t.Errorf("Kmeans centroidMeans is of size %d, %d.", a,b)
-	}
-
-	if c, d := clusterAssignment.GetSize(); c == 0 || d == 0 {
-		t.Errorf("Kmeans clusterAssessment is of size %d, %d.", c,d)
-	}
-	// TODO deterministic test
-}
-*/
-  
 func TestPointProb(t *testing.T) {
 	R := 10010.0
 	Ri := 100.0
@@ -391,7 +368,7 @@ func TestVariance(t *testing.T) {
 	var ed matutil.EuclidDist
 	_, dim := DATAPOINTS_D.GetSize()
 	// Model D
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0, 0}
 	v := variance(c, ed)
 	
 	E := 24.000
@@ -405,7 +382,7 @@ func TestVariance(t *testing.T) {
 
 	// Variance a cluster with a perfectly centered centroids
 	_, dim0 := DATAPOINTS_D0.GetSize()
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0}
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0, 0}
 	v0 := variance(c0, ed)
 	
 	E = 2.00
@@ -423,7 +400,7 @@ func TestLogLikelih(t *testing.T) {
 	R, M := DATAPOINTS_D.GetSize()
 	var ed matutil.EuclidDist
 
-	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0, 0}
 	vard := variance(cd, ed)
 	cd.variance = vard
 
@@ -442,12 +419,12 @@ func TestLogLikelih(t *testing.T) {
 	}
 
 	// Model Dn - two clusters
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0,0}
 	v0 := variance(c0, ed)
 	c0.variance = v0
 
 
-	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
+	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0, 0}
 	v1 := variance(c1, ed)
 	c1.variance = v1
 
@@ -498,7 +475,7 @@ func TestBic(t *testing.T) {
 	numparams := freeparams(K, M)
 	var ed matutil.EuclidDist
 
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0, 0}
 	vard := variance(c, ed)
 	c.variance = vard
 
@@ -513,11 +490,11 @@ func TestBic(t *testing.T) {
 	K = 1
 	numparamsn := freeparams(K, M)
 
-	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
+	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, M, 0, 0}
 	var0 := variance(c0, ed)
 	c0.variance = var0
 
-	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
+	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, M, 0, 0}
 	var1 := variance(c1, ed)
 	c1.variance = var1
 
