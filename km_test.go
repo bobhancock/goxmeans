@@ -21,7 +21,8 @@ var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.0,2.0,
 	-1.565978,-1.256985,
 	2.441611,0.444826,
 	10.29,20.6594,
-	12.93,23.3988}, 12, 2)
+	12.93,23.3988,
+	120.1, 202.18}, 13, 2)
 
 var CENTROIDS = matrix.MakeDenseMatrix([]float64{ 4.5,   11.3,
     6.1,  12.0,
@@ -502,8 +503,9 @@ func TestCalcbic(t *testing.T) {
 
 func TestModels(t *testing.T) {
 	var ed matutil.EuclidDist
-	var cc RandCentroids
-	models, errs := Models(DATAPOINTS_D, 2, 3, cc, ed)
+	ec := EllipseCentroids{0.7}
+//	var cc RandCentroids
+	models, errs := Models(DATAPOINTS, 2, 3, ec, ed)
 	for i := 0; i < len(models); i++ {
 		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].clusters), models[i].bic)
 		for j := 0; j < len(models[i].clusters); j++ {

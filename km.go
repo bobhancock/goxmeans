@@ -243,6 +243,9 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // TODO Parallelize bisection of clusters
 // TODO Allow spearate CentroidChoosers for parent and child models.
 //
+// Why do some models have zero clusters?
+// With a large number of centroids why is variance inf?
+// Use a different centroid chooser.
 func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
 	R, M := datapoints.GetSize()
 	models := make([]Model, kup)
@@ -272,9 +275,12 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 				continue
 			}
 			//Compare the BIC of this model to the parent
-			for i := 0; i < len(biclusters); i++ {
-				biclusters[i].variance = variance(biclusters[i], measurer)
+			for _, biclust := range biclusters {
+			    biclust.variance = variance(biclust, measurer)
 			}
+			/*for i := 0; i < len(biclusters); i++ {
+				biclusters[i].variance = variance(biclusters[i], measurer)
+			}*/
 			childbic := calcbic(clust.numpoints(), M, biclusters)
 			
 			// Whichever model is better goes into the array of clusters
