@@ -339,7 +339,7 @@ func TestVariance(t *testing.T) {
 	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0}
 	v := variance(c, ed)
 	
-	E := 24.000
+	E :=  20.571429
 	epsilon := .000001
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(v - na) 
@@ -353,7 +353,7 @@ func TestVariance(t *testing.T) {
 	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0}
 	v0 := variance(c0, ed)
 	
-	E = 2.00
+	E = 1.333333
 	na = math.Nextafter(E, E + 1) 
 	diff = math.Abs(v0 - na) 
 
@@ -378,7 +378,7 @@ func TestLogLikelih(t *testing.T) {
 	ll := loglikelih(R, cslice)
 
 	epsilon := .000001
-	E := -36.275939
+	E := -35.042733
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(ll - na) 
 
@@ -400,7 +400,7 @@ func TestLogLikelih(t *testing.T) {
 
 	ll_n := loglikelih(R, cslicen)
 
-	E = -21.441863
+	E = -18.198142
 	na = math.Nextafter(E, E + 1) 
 	diff = math.Abs(ll_n - na) 
 
@@ -491,7 +491,7 @@ func TestCalcbic(t *testing.T) {
 	bic := calcbic(R, M, cslice)
 
 	epsilon := .000001
-	E := -39.855380
+	E := -38.622175
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(bic - na) 
 
@@ -501,11 +501,20 @@ func TestCalcbic(t *testing.T) {
 } 
 
 
-/*func TestModels(t *testing.T) {
+func TestModels(t *testing.T) {
 	var ed matutil.EuclidDist
 	var cc RandCentroids
-	models, errs := Models(DATAPOINTS_D, 2, 4, cc, ed)
+	models, errs := Models(DATAPOINTS_D, 2, 3, cc, ed)
 	fmt.Printf("models: %v\n", models)
 	fmt.Printf("errs: %v\n", errs)
-}*/
-
+}
+/*
+func TestZarc(t *testing.T) {
+	var ed  matutil.EuclidDist
+	points := matrix.MakeDenseMatrix([]float64{4,3,3,4}, 2,2)
+	centroid := matrix.MakeDenseMatrix([]float64{3.5,3.5}, 1,2)
+	c := cluster{points, centroid, 2, 0}
+	v := variance(c, ed)
+	fmt.Printf("v=%f\n", v)
+}
+*/
