@@ -500,15 +500,23 @@ func TestCalcbic(t *testing.T) {
 	}
 } 
 
-
 func TestModels(t *testing.T) {
 	var ed matutil.EuclidDist
 	var cc RandCentroids
 	models, errs := Models(DATAPOINTS_D, 2, 3, cc, ed)
-	fmt.Printf("models: %v\n", models)
-	fmt.Printf("errs: %v\n", errs)
+	for i := 0; i < len(models); i++ {
+		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].clusters), models[i].bic)
+		for j := 0; j < len(models[i].clusters); j++ {
+			fmt.Printf("cluster %d\n", j)
+			fmt.Printf("\tpoints=%v\n", models[i].clusters[j].points)
+			fmt.Printf("\tcentroid=%v\n", models[i].clusters[j].centroid)
+			fmt.Printf("\tdim=%v\n", models[i].clusters[j].dim)
+			fmt.Printf("\tvariance=%v\n", models[i].clusters[j].variance)
+		}
+	}
+	fmt.Printf("\nerrs: %v\n", errs)
 }
-
+/*
 func TestZarc(t *testing.T) {
 	var ed  matutil.EuclidDist
 	points := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
@@ -517,3 +525,4 @@ func TestZarc(t *testing.T) {
 	v := variance(c, ed)
 	fmt.Printf("v=%f\n", v)
 }
+*/

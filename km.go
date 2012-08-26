@@ -63,7 +63,7 @@ type EllipseCentroids struct {
 
 type Model struct {
 	bic float64
-	cluster []cluster
+	clusters []cluster
 }
 
 // cluster models an individual cluster.
@@ -233,11 +233,6 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	return vectorSum, nil
 }
 
-type Kmodel struct {
-	BIC float64
-	clusters []cluster
-}
-
 // Kmeansmodels runs k-means for k lower bound to k upper bound on a data set.
 //  Once the k centroids have converged each cluster is bisected and the BIC
 // of the orginal cluster (parent = a model with one centroid) to the 
@@ -254,7 +249,6 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 	errs := make(map[string]error)
 
 	for k := klow; k <= kup; k++ {
-		fmt.Printf("\nTop: k=%d\n",k)
 		bufclusters := make([]cluster, 1)
 		clusters, err := Kmeansp(datapoints, k, cc, measurer)
 		if err != nil {
@@ -265,7 +259,6 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 		// bisect each clusters and see if you can get a better BIC
 		// You are comparing ModelA with the one centroid to ModelA_1
 		// bisected with two centroids.
-		fmt.Printf("Top: len(clusters)=%d\n", len(clusters))
 		for j, clust := range clusters {
 			vari := variance(clust, measurer)
 			clust.variance = vari
@@ -278,53 +271,34 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 				errs[idx] = berr
 				continue
 			}
-			fmt.Printf("k=%d j=%d After bisections: len(biclusters)=%d\n", k, j, len(biclusters))
-			for i := 0; i < len(biclusters); i++ {
-				fmt.Printf("After: biclusters[%d].points=%v\n", i, biclusters[i].points)
-			}
 			//Compare the BIC of this model to the parent
 			for i := 0; i < len(biclusters); i++ {
-				fmt.Printf("\ti=%d points=%v centroid=%v\n",i, biclusters[i].points, biclusters[i].centroid)
 				biclusters[i].variance = variance(biclusters[i], measurer)
-				fmt.Printf("\ti=%d biclusters[i].variance=%f\n", i, 	biclusters[i].variance)
 			}
 			childbic := calcbic(clust.numpoints(), M, biclusters)
-			fmt.Printf("k=%d j=%d parentbic=%f childbic=%f\n", k, j, parentbic, childbic)
 			
 			// Whichever model is better goes into the array of clusters
 			// for this model k.
 			if parentbic >= childbic { 
 				if j == 0 {
 					bufclusters[0] = clust
-					fmt.Printf("p >= c bufclusters[0] = clust\n")
 				} else {
 					bufclusters = append(bufclusters, clust)
 				}
 			}
 
 			if childbic > parentbic {
-				fmt.Printf("childbic > parentbic: j=%d len(bufclusters)=%d\n", j, len(bufclusters))
 				if  j == 0 {
 					bufclusters[0] = biclusters[0]
-					fmt.Printf("c > p After: bufclusters[0] = biclusters[0]\n")
 					bufclusters = append(bufclusters, biclusters[1:]...)
 				} else {
 					bufclusters = append(bufclusters, biclusters...)
-					fmt.Printf("After append: len(bufclusters)=%d\n", len(bufclusters))
 				}
 			} 
 		}
-		fmt.Printf("Top: exited k loop\n")
 		// Add this model to the model slice
-		fmt.Printf("\nBefore calcbic\n")
-		fmt.Printf("R=%d M=%d\n", R, M)
-		for i := 0; i < len(bufclusters); i++ {
-			fmt.Printf("i=%d points=%v\n", i, bufclusters[i].points)
-		}
 		modelbic := calcbic(R, M, bufclusters) //<==ERROR
-		fmt.Printf("modelbic=%f\n", modelbic)
 		m := Model{modelbic, bufclusters}
-		fmt.Printf("Model m: %v\n", m)
 		if k == klow {
 			models[0] = m
 		} else {
@@ -572,8 +546,6 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // R - K /__  i          2 \/__  i /  
 //                (R - K)      
 //    
-// TODO If the points and the centroids are exactly the same, then
-// 1 / (R - K) will be a divide by zero error.
 func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 	if matrix.Equals(c.points, c.centroid) == true {
 		return 0.0
