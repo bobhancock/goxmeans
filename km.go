@@ -233,8 +233,8 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	return vectorSum, nil
 }
 
-// Kmeansmodels runs k-means for k lower bound to k upper bound on a data set.
-//  Once the k centroids have converged each cluster is bisected and the BIC
+// Models runs k-means for k lower bound to k upper bound on a data set.
+// Once the k centroids have converged each cluster is bisected and the BIC
 // of the orginal cluster (parent = a model with one centroid) to the 
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
@@ -245,44 +245,56 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 //
 // Why do some models have zero clusters?
 // With a large number of centroids why is variance inf?
-// Use a different centroid chooser.
+// Use a different centroid chooser for main process and bisection?
 func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
 	R, M := datapoints.GetSize()
 	models := make([]Model, kup)
 	errs := make(map[string]error)
 
+	fmt.Printf("=======Models klow=%d kup=%d\n", klow, kup)
 	for k := klow; k <= kup; k++ {
+		fmt.Printf("\nKloop Top: k=%d\n", k)
 		bufclusters := make([]cluster, 1)
+
+		fmt.Printf("Kloop: Before Kmeansp k=%d\n", k)
 		clusters, err := Kmeansp(datapoints, k, cc, measurer)
 		if err != nil {
 			errs[strconv.Itoa(k)] = err
 		}
+		fmt.Printf("Kloop: After Kmeansp len(clusters)=%d\n", len(clusters))
+
 		
 		// clusters is a []cluster. 
 		// bisect each clusters and see if you can get a better BIC
 		// You are comparing ModelA with the one centroid to ModelA_1
 		// bisected with two centroids.
 		for j, clust := range clusters {
-			vari := variance(clust, measurer)
-			clust.variance = vari
-			parentbic := calcbic(R, M, []cluster{clust})
+			fmt.Printf("Biloop: Top j=%d\n", j)
+			clust.variance = variance(clust, measurer)
 
-			//fmt.Printf("Before: j=%d clust.points=%v\n", j, clust.points)
+			parentbic := calcbic(clust.numpoints(), M, []cluster{clust})
+			fmt.Printf("Biloop: parentbic=%f\n", parentbic)
+
+			fmt.Printf("Biloop: Before Kmeansp: j=%d clust.points=%v  centroid=%v  clust.variance=%f\n", j, clust.points, clust.centroid, clust.variance)
 			biclusters, berr := Kmeansp(clust.points, 2, cc, measurer)
 			if berr != nil {
 				idx := strconv.Itoa(k)+"."+strconv.Itoa(j)
 				errs[idx] = berr
 				continue
 			}
-			//Compare the BIC of this model to the parent
 			for _, biclust := range biclusters {
 			    biclust.variance = variance(biclust, measurer)
 			}
-			/*for i := 0; i < len(biclusters); i++ {
-				biclusters[i].variance = variance(biclusters[i], measurer)
-			}*/
+
+			fmt.Printf("Biloop: After Kmeansp: j=%d len(biclusters)=%d\n", j, len(biclusters))
+			for i, clust := range biclusters {
+				fmt.Printf("Biloop: After Kmeansp: bicluster[%d]=%v\n variance=%f\n", i, clust.points, clust.variance)
+			}
+		
+			//Compare the BIC of this model to the parent
 			childbic := calcbic(clust.numpoints(), M, biclusters)
 			
+			fmt.Printf("Biloop: j=%d parentbic=%f childbic=%f\n", j, parentbic, childbic)
 			// Whichever model is better goes into the array of clusters
 			// for this model k.
 			if parentbic >= childbic { 
@@ -627,25 +639,36 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.
 //
 // Refer to Notes on Bayesian Information Criterion Calculation equation.
-// N.B. n is actually a subscript but was written this way to make the equation
-//      legible.
 //
-//         /                                                                              \
-// __ K    |    R_n     R_n * M                     R_n - K                                |
-// \       | -  ---  -  -------  * log(variance) - --------  + (R_n * logR_n - R_n * logR) |
-// /_ n=1  |     2        2                           2                                    |
-//         \                                                                              /
-//
+//          /                   R M                               \ 
+//  __ K    |                    n                       1        | 
+// \        |R logR  - R logR - ---log(2pi * variance) - -(R  - 1)| 
+// /__ n = 1\ n    n    n        2                       2  n     / 
+
+
 func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
+	
 	for i := 0; i < int(len(c)); i++ {
 		fRn := float64(c[i].numpoints())
-		t1 := (fRn / 2.0) * math.Log(2.0 * math.Pi)
-		t2 := ((fRn * float64(c[i].dim)) / 2.0) * math.Log(c[i].variance)
-		t3 := (fRn - float64(c[i].numcentroids())) / 2.0
-		t4 := fRn * math.Log(fRn) - fRn * math.Log(float64(R))
+		fmt.Printf("fRn=%f\n", fRn)
 
-		ll += (-t1 - t2 - t3 + t4)
+		t1 := fRn * math.Log(fRn)
+		fmt.Printf("t1=%f\n", t1)
+
+		t2 :=  fRn * math.Log(float64(R))
+		fmt.Printf("t2=%f\n", t2)
+
+		fmt.Printf("t3: c[%d].dim=%d  c[%d].variance=%f\n", i,c[i].dim, i, c[i].variance)
+		// TODO  If variance is 0 this becomes -Inf
+		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].variance)
+		fmt.Printf("t3=%f\n", t3)
+
+		t4 := (0.5 * (fRn - 1))
+		fmt.Printf("t4=%f\n", t4)
+
+	
+		ll += (t1 - t2 - t3 - t4)
 	}
 	return ll
 }

@@ -503,9 +503,12 @@ func TestCalcbic(t *testing.T) {
 
 func TestModels(t *testing.T) {
 	var ed matutil.EuclidDist
-	ec := EllipseCentroids{0.7}
-//	var cc RandCentroids
-	models, errs := Models(DATAPOINTS, 2, 3, ec, ed)
+//	cc := EllipseCentroids{0.5}
+	var cc RandCentroids
+	klow := 2
+	kup := 3
+	models, errs := Models(DATAPOINTS_D, klow, kup, cc, ed)
+/*	fmt.Printf("============Test\n")
 	for i := 0; i < len(models); i++ {
 		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].clusters), models[i].bic)
 		for j := 0; j < len(models[i].clusters); j++ {
@@ -516,15 +519,29 @@ func TestModels(t *testing.T) {
 			fmt.Printf("\tvariance=%v\n", models[i].clusters[j].variance)
 		}
 	}
-	fmt.Printf("\nerrs: %v\n", errs)
-}
-/*
-func TestZarc(t *testing.T) {
-	var ed  matutil.EuclidDist
-	points := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
-	centroid := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
-	c := cluster{points, centroid, 2, 0}
-	v := variance(c, ed)
-	fmt.Printf("v=%f\n", v)
-}
 */
+	fmt.Printf("\nerrs: %v\n", errs)
+	fmt.Printf("models=%v\n", models)
+}
+
+func TestZarc(t *testing.T) {
+//	var ed  matutil.EuclidDist
+	points0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
+	centroid0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
+	c0 := cluster{points0, centroid0, 2, 0}
+	fmt.Printf("c0.points=%v\n", c0.points)
+
+	points1 := matrix.MakeDenseMatrix([]float64{4,3,3,4}, 2,2)
+	c1 := cluster{points1, centroid0, 2, 1.0}
+	fmt.Printf("c1.points=%v\n", c1.points)
+
+	clusters := []cluster{c0,c1}
+	fmt.Printf("c0.numpoints=%d + c1.numpoints=%d\n", c0.numpoints(), c1.numpoints())
+	R := c0.numpoints() + c1.numpoints()
+	fmt.Printf("R=%d\n", R)
+	ll := loglikelih(R, clusters)
+	fmt.Printf("\nll=%f\n", ll)
+
+	bic := calcbic(R, 2, clusters)
+	fmt.Printf("bic=%f\n", bic)
+}
