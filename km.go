@@ -66,14 +66,12 @@ type Model struct {
 	cluster []cluster
 }
 
-
-// cluster models an individual cluster with one centroid.
+// cluster models an individual cluster.
 type cluster struct {
 	points *matrix.DenseMatrix
 	centroid  *matrix.DenseMatrix
 	dim int // number of dimensions
 	variance float64
-	bic float64
 }
 
 func (c cluster) numpoints() int {
@@ -242,20 +240,65 @@ type Kmodel struct {
 
 // Kmeansmodels runs k-means for k lower bound to k upper bound.
 //
-// Calling Kmeansmodels(datapoints, 4, 10, cc, measurer) will return a map where
-// the index is the number k is a member of {k_i...k_n} and the value is a Kmodel 
-// with the details of the model.
-/*func Kmeansmodels(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) map[int]Kmodel {
-	// TODO This is just place holder function at the moment
-	for i := klow; i < kup; i++ {
-		centroids, CentPointDist, err := Kmeansp(datapoints, i, cc, measurer)
+func Kmeansmodels(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
+	R, M := datapoints.GetSize()
+	models := make([]Model, kup)
+	errs := make(map[string]error)
+
+	for k := klow; k <= kup; k++ {
+		bufclusters := make([]cluster, 1)
+		clusters, err := Kmeansp(datapoints, k, cc, measurer)
+		if err != nil {
+			errs[strconv.Itoa(k)] = err
+		}
+		
+		// bisect the clusters and see if you can get a better BIC
+		for j, clust := range clusters {
+			ll := loglikelih(R,  []cluster{clust})
+			freep := freeparams(k, M)
+			parentbic := bic(ll, freep, R) //BIC of D
+
+			biclusters, berr := Kmeansp(clust.points, 2, cc, measurer)
+			if berr != nil {
+				idx := strconv.Itoa(k)+"."+strconv.Itoa(j)
+				errs[idx] = berr
+			}
+			//Compare the BIC of this model to the parent
+			ll = loglikelih(clust.numpoints(), biclusters)
+			freep = freeparams(2, M)
+			childbic := bic(ll, freep, clust.numpoints())
+			
+			// Whichever model is better goes into the array of clusters
+			// for this model k.
+			if parentbic >= childbic { 
+				if j == 0 {
+					bufclusters[0] = clust
+				} else {
+					bufclusters = append(bufclusters, clust)
+				}
+			}
+
+			if childbic > parentbic {
+				if  j == 0 {
+					bufclusters[0] = biclusters[0]
+					bufclusters = append(bufclusters, biclusters[1:]...)
+				} else {
+					bufclusters = append(bufclusters, biclusters...)
+				}
+			} 
+		}
+		// Add this model to the model slice
+		modelbic := calcbic(R, M, bufclusters)
+		m := Model{modelbic, bufclusters}
+		if k == klow {
+			models[0] = m
+		} else {
+			models = append(models, m)
+		}
 	}
-
-	m := make(map[int]Kmodel, 10)
-	return m
-}*/
+	return models, errs
+}
 	
-
 // Kmeansp partitions datapoints into K clusters.  This results in a partitioning of
 // the data space into Voronoi cells.  The problem is NP-hard so here we attempt
 // to parallelize as many processes as possible to reduce the running time.
@@ -270,8 +313,6 @@ type Kmodel struct {
 // the new centroid.
 //
 // 4. Repeat Steps 2 and 3 until the centroids no longer move.
-//
-// Return Values
 //
 // centroids is K x M matrix that cotains the coordinates for the centroids.
 // The centroids are indexed by the 0 based rows of this matrix.
@@ -292,10 +333,8 @@ type Kmodel struct {
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
 //
-//func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix, 
-//	*matrix.DenseMatrix, error) {
 func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]cluster, error) {
-/*  datapoints				  CentPointDist            centroids				  
+/*  datapoints				  CentPoinDist            centroids				  
                                  ________________
    ____	  ____				  __|__	  ______	 |	  ____	___________	  
    | ...	 |				 |	...			|	 V	 | ...		       |	  
@@ -344,7 +383,6 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 			//matrix  and the value is the value in the column of the source matrix 
 			//specified by col.  Here the value is the centroid paired with the point.
 			if err != nil {
-				//return matrix.Zeros(k, M), CentPointDist, err
 				return clusters, err
 			}
 			// It is possible that some centroids could not have any points, so there 
@@ -369,11 +407,8 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 			centroids.SetRowVector(mean, cent)
 //			fmt.Printf("kmeansp: cent=%d centroids=%v\n", cent, centroids)
 
-			clust := cluster{pointsInCluster, mean, M, 0, 0}
+			clust := cluster{pointsInCluster, mean, M, 0}
 			clust.variance = variance(clust, measurer)
-			ll := loglikelih(clust.numpoints(),  []cluster{clust})
-			freep := freeparams(clust.numcentroids(), M)
-			clust.bic = bic(ll, freep, clust.numpoints())
 			if cent == 0 {
 				clusters[0] = clust
 			} else {
@@ -472,24 +507,6 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 	}	
 	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
 }
-
-// kmeansbi bisects datapoints with two centroids and performs k-means.  The BIC 
-// of the two resulting clusters is compared to the original BIC and whichever
-// scores better, wins.
-//
-// Returns the same values as kmeansp().
-/*func kmeansbi(datapoints *matrix.DenseMatrix,cc CentroidChooser, measurer matutil.VectorMeasurer) (*matrix.DenseMatrix,
-	*matrix.DenseMatrix, error) {
-	numRows, numCols := datapoints.GetSize()
-	CentPointDist := matrix.Zeros(numRows, numCols)
-
-	centroids, CentPointDist, err := Kmeansp(datapoints, 2, cc, measurer)
-	if err != nil {
-		return matrix.Zeros(1,1), matrix.Zeros(1,1), err
-	}
-
-	return centroids, CentPointDist, nil
-}*/
 
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
@@ -649,3 +666,9 @@ func bic(loglikelih float64, numparams, R int) (float64) {
 	return loglikelih - (float64(numparams) / 2.0) - math.Log(float64(R))
 }
 
+// calcbic calculate BIC from R, M, and a slice of clusters
+func calcbic(R, M int, clusters []cluster) float64 {
+	ll := loglikelih(R, clusters)
+	freep := freeparams(len(clusters), M)
+	return bic(ll, freep, R)
+}
