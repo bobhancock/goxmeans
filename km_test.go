@@ -215,38 +215,6 @@ func TestKmeansp(t *testing.T) {
 	if y != expect {
 		t.Error("TestKmeansp: second centroid y coordinate is %f instead of %f.", x, expect)
 	}
-
-	// Expected values
-	ca :=  matrix.MakeDenseMatrix( []float64{0, 1.16,
-		0, 1.96,
-		0, 0.36,
-		0, 1.16,
-		1,    1,
-		1,    1,
-		1,    1,
-		1,    1,
-		0, 2.56}, 9,2)
-
-	numrows, _ := ca.GetSize()
-	epsilon := .000001
-
-	for i := 0; i < numrows; i++ {
-		cacent := ca.Get(i,0)
-		returncent := CentPointDist.Get(i, 0)
-		if returncent != cacent {
-			t.Error("TestKmeansp: CentPointDist(%d, 0) centroid should be %f but is %f.", i, cacent, float64(returncent))
-		}
-
-		cadist := ca.Get(i,1)
-		returndist := CentPointDist.Get(i, 1)
-		E := cadist
-		na := math.Nextafter(E, E + 1) 
-		diff := math.Abs(returndist - na) 
-
-		if diff > epsilon {
-			t.Error("TestKmeansp: CentPointDist(%d, 1) distance should be %f but is %f.", i, cadist, returndist)
-		}
-	}
 }
    
 func TestAddPairPointToCentroidJob(t *testing.T) {
@@ -368,7 +336,7 @@ func TestVariance(t *testing.T) {
 	var ed matutil.EuclidDist
 	_, dim := DATAPOINTS_D.GetSize()
 	// Model D
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0}
 	v := variance(c, ed)
 	
 	E := 24.000
@@ -382,7 +350,7 @@ func TestVariance(t *testing.T) {
 
 	// Variance a cluster with a perfectly centered centroids
 	_, dim0 := DATAPOINTS_D0.GetSize()
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0, 0}
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0}
 	v0 := variance(c0, ed)
 	
 	E = 2.00
@@ -400,7 +368,7 @@ func TestLogLikelih(t *testing.T) {
 	R, M := DATAPOINTS_D.GetSize()
 	var ed matutil.EuclidDist
 
-	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0, 0}
+	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(cd, ed)
 	cd.variance = vard
 
@@ -419,12 +387,12 @@ func TestLogLikelih(t *testing.T) {
 	}
 
 	// Model Dn - two clusters
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0,0}
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
 	v0 := variance(c0, ed)
 	c0.variance = v0
 
 
-	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0, 0}
+	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
 	v1 := variance(c1, ed)
 	c1.variance = v1
 
@@ -475,7 +443,7 @@ func TestBic(t *testing.T) {
 	numparams := freeparams(K, M)
 	var ed matutil.EuclidDist
 
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(c, ed)
 	c.variance = vard
 
@@ -490,11 +458,11 @@ func TestBic(t *testing.T) {
 	K = 1
 	numparamsn := freeparams(K, M)
 
-	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, M, 0, 0}
+	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
 	var0 := variance(c0, ed)
 	c0.variance = var0
 
-	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, M, 0, 0}
+	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
 	var1 := variance(c1, ed)
 	c1.variance = var1
 
@@ -509,5 +477,35 @@ func TestBic(t *testing.T) {
 	if bic1 >= bic2 {
 		t.Errorf("TestBicComp: bic2 should be greater than bic1, but received bic1=%f and bic2=%f", bic1, bic2)
 	}
-
 }
+
+func TestCalcbic(t *testing.T) {
+	var ed matutil.EuclidDist
+	R, M := DATAPOINTS_D.GetSize()
+	
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	vard := variance(c, ed)
+	c.variance = vard
+	cslice := []cluster{c}
+
+	bic := calcbic(R, M, cslice)
+
+	epsilon := .000001
+	E := -39.855380
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(bic - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestCalcbic: Expected %f but received %f.  The difference %f exceeds epsilon %f", E, bic, diff, epsilon)
+	}
+} 
+
+
+/*func TestModels(t *testing.T) {
+	var ed matutil.EuclidDist
+	var cc RandCentroids
+	models, errs := Models(DATAPOINTS_D, 2, 4, cc, ed)
+	fmt.Printf("models: %v\n", models)
+	fmt.Printf("errs: %v\n", errs)
+}*/
+
