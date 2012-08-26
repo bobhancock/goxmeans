@@ -571,9 +571,16 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // ----- \   x  - -------- |\   x  |  
 // R - K /__  i          2 \/__  i /  
 //                (R - K)      
-//       
+//    
+// TODO If the points and the centroids are exactly the same, then
+// 1 / (R - K) will be a divide by zero error.
 func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
+	if matrix.Equals(c.points, c.centroid) == true {
+		return 0.0
+	}
+
 	sum := float64(0)
+	//fmt.Printf("npoints=%d ncents=%d\n", c.numpoints(), c.numcentroids())
 	denom := float64(c.numpoints() - c.numcentroids())
 
 	for i := 0; i < c.numpoints(); i++ {
@@ -582,7 +589,9 @@ func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 		dist := measurer.CalcDist(mu_i, p)
 		sum += math.Pow(dist, 2) 
 	}
-	return (1.0 / denom) * sum
+	//fmt.Printf("denom=%f sum=%f\n", denom, sum)
+	v := (1.0 / denom) * sum
+	return v
 }
 
 // pointProb calculates the probability of an individual point.

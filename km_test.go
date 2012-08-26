@@ -508,13 +508,12 @@ func TestModels(t *testing.T) {
 	fmt.Printf("models: %v\n", models)
 	fmt.Printf("errs: %v\n", errs)
 }
-/*
+
 func TestZarc(t *testing.T) {
 	var ed  matutil.EuclidDist
-	points := matrix.MakeDenseMatrix([]float64{4,3,3,4}, 2,2)
-	centroid := matrix.MakeDenseMatrix([]float64{3.5,3.5}, 1,2)
+	points := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
+	centroid := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
 	c := cluster{points, centroid, 2, 0}
 	v := variance(c, ed)
 	fmt.Printf("v=%f\n", v)
 }
-*/
