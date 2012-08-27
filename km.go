@@ -191,9 +191,10 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 	centroids := matrix.Zeros(k, cols)
 	// Can't return error of it does not implement CentroidChooser
 	// TODO How to deal with this? Should CentroidChooser return err?
-//	if k > rows {
+	if k > rows {
 //		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
-//	}
+		k = rows
+	}
 
 	chosenIdxs := make(map [int]bool, k)
 	for len(chosenIdxs) < k {
@@ -664,15 +665,16 @@ func loglikelih(R int, c []cluster) float64 {
 		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].variance)
 //		fmt.Printf("t3=%f\n", t3)
 
-		t4 := (0.5 * (fRn - 1))
+		t4 := ((fRn - 1) / 2)
 //		fmt.Printf("t4=%f\n", t4)
 
 		ll += (t1 - t2 - t3 - t4)
-		fmt.Printf("loglikelih: ll=%f\n", ll)
+//		fmt.Printf("loglikelih: ll=%f\n", ll)
 	}
 	return ll
 }
 
+// As stated in the Moore-Pellig paper.
 // R            R  * M                R  - K                     
 //  n            n                     n                         
 // --log(2Pi) - ------log(variance) - ------ + R logr{n} - R log 
