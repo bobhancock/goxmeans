@@ -185,13 +185,15 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 }
 
 // DataCentroids picks k distinct points from the dataset
-func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
-	if k > rows {
-		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
-	}
+	// Can't return error of it does not implement CentroidChooser
+	// TODO How to deal with this? Should CentroidChooser return err?
+//	if k > rows {
+//		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
+//	}
 
 	chosenIdxs := make(map [int]bool, k)
 	for len(chosenIdxs) < k {
@@ -203,7 +205,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 		centroids.SetRowVector(mat.GetRowVector(idx).Copy(), i)
 		i += 1
 	}
-	return centroids, nil
+	return centroids
 }
 
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
@@ -644,31 +646,51 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 //  __ K    |                    n                       1        | 
 // \        |R logR  - R logR - ---log(2pi * variance) - -(R  - 1)| 
 // /__ n = 1\ n    n    n        2                       2  n     / 
-
-
+//
 func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
 	
 	for i := 0; i < int(len(c)); i++ {
 		fRn := float64(c[i].numpoints())
-		fmt.Printf("fRn=%f\n", fRn)
+//		fmt.Printf("fRn=%f\n", fRn)
 
 		t1 := fRn * math.Log(fRn)
-		fmt.Printf("t1=%f\n", t1)
+//		fmt.Printf("t1=%f\n", t1)
 
 		t2 :=  fRn * math.Log(float64(R))
-		fmt.Printf("t2=%f\n", t2)
+//		fmt.Printf("t2=%f\n", t2)
 
-		fmt.Printf("t3: c[%d].dim=%d  c[%d].variance=%f\n", i,c[i].dim, i, c[i].variance)
-		// TODO  If variance is 0 this becomes -Inf
+//		fmt.Printf("t3: c[%d].dim=%d  c[%d].variance=%f\n", i,c[i].dim, i, c[i].variance)
 		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].variance)
-		fmt.Printf("t3=%f\n", t3)
+//		fmt.Printf("t3=%f\n", t3)
 
 		t4 := (0.5 * (fRn - 1))
-		fmt.Printf("t4=%f\n", t4)
+//		fmt.Printf("t4=%f\n", t4)
 
-	
 		ll += (t1 - t2 - t3 - t4)
+		fmt.Printf("loglikelih: ll=%f\n", ll)
+	}
+	return ll
+}
+
+// R            R  * M                R  - K                     
+//  n            n                     n                         
+// --log(2Pi) - ------log(variance) - ------ + R logr{n} - R log 
+//  2              2                     2      n           n   n
+//
+func loglikelihMoore(R, K int, c []cluster) float64 {
+	ll := 0.0
+
+	for _, clust := range c {
+		Rn := float64(clust.numpoints())
+		t1 := (Rn / 2) * math.Log(2 * math.Pi)
+		t2 := ((Rn * float64(clust.dim)) / 2) * math.Log(clust.variance)
+		t3 := (Rn - float64(K)) / 2
+		t4 := Rn * math.Log(Rn)
+		t5 := Rn * math.Log(float64(R))
+
+		ll += -t1 - t2 - t3 + t4 - t5
+		fmt.Printf("loglikelih: ll=%f\n", ll)
 	}
 	return ll
 }

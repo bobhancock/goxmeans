@@ -127,7 +127,7 @@ func TestValidReturnLoad(t *testing.T) {
 	}
 }
 
-/* Test fails
+// Test fails
 func TestRandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
@@ -144,7 +144,7 @@ func TestRandCentroids(t *testing.T) {
 		}
 	}
 }
-*/
+
 
 
 func TestComputeCentroid(t *testing.T) {
@@ -183,6 +183,7 @@ func TestKmeansp(t *testing.T) {
 	
 	var ed matutil.EuclidDist
 	var cc RandCentroids
+	//var cc EllipseCentroids
 
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
 
@@ -410,6 +411,52 @@ func TestLogLikelih(t *testing.T) {
 	}
 }
 
+func TestLogLikelihMoore(t *testing.T) {
+	// Model D - one cluster
+	R, M := DATAPOINTS_D.GetSize()
+	K := 4
+	var ed matutil.EuclidDist
+
+	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	vard := variance(cd, ed)
+	cd.variance = vard
+
+	cslice := make([]cluster, 1)
+	cslice[0] = cd
+
+	ll := loglikelihMoore(R, K,  cslice)
+
+	epsilon := .000001
+	E := -35.042733
+	na := math.Nextafter(E, E + 1) 
+	diff := math.Abs(ll - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestLoglikeli: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
+	}
+
+	// Model Dn - two clusters
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
+	v0 := variance(c0, ed)
+	c0.variance = v0
+
+
+	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
+	v1 := variance(c1, ed)
+	c1.variance = v1
+
+	cslicen := []cluster{c0, c1}
+
+	ll_n := loglikelihMoore(R, K, cslicen)
+
+	E = -18.198142
+	na = math.Nextafter(E, E + 1) 
+	diff = math.Abs(ll_n - na) 
+
+	if diff > epsilon {
+		t.Errorf("TestLoglikeli: For model Dn expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll_n, diff, epsilon)
+	}
+}
 
 // Create two tight clusters and test the scores for a model with 1 centroid 
 // that is equidistant between the two and a model with 2 centroids where 
@@ -501,14 +548,14 @@ func TestCalcbic(t *testing.T) {
 	}
 } 
 
-func TestModels(t *testing.T) {
+/*func TestModels(t *testing.T) {
 	var ed matutil.EuclidDist
 //	cc := EllipseCentroids{0.5}
 	var cc RandCentroids
 	klow := 2
 	kup := 3
 	models, errs := Models(DATAPOINTS_D, klow, kup, cc, ed)
-/*	fmt.Printf("============Test\n")
+	fmt.Printf("============Test\n")
 	for i := 0; i < len(models); i++ {
 		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].clusters), models[i].bic)
 		for j := 0; j < len(models[i].clusters); j++ {
@@ -519,12 +566,12 @@ func TestModels(t *testing.T) {
 			fmt.Printf("\tvariance=%v\n", models[i].clusters[j].variance)
 		}
 	}
-*/
+
 	fmt.Printf("\nerrs: %v\n", errs)
 	fmt.Printf("models=%v\n", models)
 }
-
-func TestZarc(t *testing.T) {
+*/
+/*func TestZarc(t *testing.T) {
 //	var ed  matutil.EuclidDist
 	points0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
 	centroid0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
@@ -545,3 +592,4 @@ func TestZarc(t *testing.T) {
 	bic := calcbic(R, 2, clusters)
 	fmt.Printf("bic=%f\n", bic)
 }
+*/
