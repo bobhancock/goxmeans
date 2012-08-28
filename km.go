@@ -257,7 +257,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 	fmt.Printf("=======Models klow=%d kup=%d\n", klow, kup)
 	for k := klow; k <= kup; k++ {
 		fmt.Printf("\nKloop Top: k=%d\n", k)
-		bufclusters := make([]cluster, 1)
+		bufclusters := make([]cluster, 0)
 
 		fmt.Printf("Kloop: Before Kmeansp k=%d\n", k)
 		clusters, err := Kmeansp(datapoints, k, cc, measurer)
@@ -301,20 +301,11 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 			// Whichever model is better goes into the array of clusters
 			// for this model k.
 			if parentbic >= childbic { 
-				if j == 0 {
-					bufclusters[0] = clust
-				} else {
-					bufclusters = append(bufclusters, clust)
-				}
+				bufclusters = append(bufclusters, clust)
 			}
 
 			if childbic > parentbic {
-				if  j == 0 {
-					bufclusters[0] = biclusters[0]
-					bufclusters = append(bufclusters, biclusters[1:]...)
-				} else {
 					bufclusters = append(bufclusters, biclusters...)
-				}
 			} 
 		}
 		// Add this model to the model slice
@@ -381,11 +372,11 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 	CentPointDist := matrix.Zeros(numRows, M)
 
 	clusterChanged := true
-	clusters := make([]cluster, 1)
+	var clusters []cluster
 
 	for ; clusterChanged == true ; {
 		clusterChanged = false
-		clusters = make([]cluster, 1)
+		clusters = make([]cluster, 0)
 
 		jobs := make(chan PairPointCentroidJob, numworkers)
 		results := make(chan PairPointCentroidResult, minimum(1024, numRows))
@@ -438,11 +429,7 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 
 			clust := cluster{pointsInCluster, mean, M, 0}
 			clust.variance = variance(clust, measurer)
-			if idx == 0 {
-				clusters[0] = clust
-			} else {
-				clusters = append(clusters, clust)
-			}
+			clusters = append(clusters, clust)
 			idx++
 		}
 	}
