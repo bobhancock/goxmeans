@@ -128,13 +128,13 @@ func TestValidReturnLoad(t *testing.T) {
 }
 
 // Test fails
-func TestRandCentroids(t *testing.T) {
+func TestrandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
 	k := 2
 	data := []float64{1, 2.0, 3, -4.945, 5, -6.1, 7, 8, 9}
 	mat := matrix.MakeDenseMatrix(data, rows, cols)
-	choosers := []CentroidChooser{RandCentroids{}, DataCentroids{}, EllipseCentroids{0.5}}
+	choosers := []CentroidChooser{randCentroids{}, DataCentroids{}, EllipseCentroids{0.5}}
 	for _, cc := range choosers{
 		centroids := cc.ChooseCentroids(mat, k)
 
@@ -182,7 +182,7 @@ func TestKmeansp(t *testing.T) {
 //	}
 	
 	var ed matutil.EuclidDist
-//	var cc RandCentroids
+//	var cc randCentroids
 	var cc DataCentroids
 //	cc := EllipseCentroids{0.1}
 
@@ -572,10 +572,11 @@ func TestCalcbic(t *testing.T) {
 	}
 } 
 
-/*func TestModels(t *testing.T) {
+func TestModels(t *testing.T) {
 	var ed matutil.EuclidDist
 //	cc := EllipseCentroids{0.5}
-	var cc RandCentroids
+	var cc DataCentroids
+//	var cc randCentroids
 	klow := 2
 	kup := 3
 	models, errs := Models(DATAPOINTS_D, klow, kup, cc, ed)
@@ -594,26 +595,21 @@ func TestCalcbic(t *testing.T) {
 	fmt.Printf("\nerrs: %v\n", errs)
 	fmt.Printf("models=%v\n", models)
 }
-*/
-/*func TestZarc(t *testing.T) {
-//	var ed  matutil.EuclidDist
-	points0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
-	centroid0 := matrix.MakeDenseMatrix([]float64{2,3}, 1,2)
-	c0 := cluster{points0, centroid0, 2, 0}
-	fmt.Printf("c0.points=%v\n", c0.points)
 
-	points1 := matrix.MakeDenseMatrix([]float64{4,3,3,4}, 2,2)
-	c1 := cluster{points1, centroid0, 2, 1.0}
-	fmt.Printf("c1.points=%v\n", c1.points)
+func TestZarc(t *testing.T) {
+	var ed  matutil.EuclidDist
+	points := DATAPOINTS_D
+	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
+	c0 := cluster{points, centroid, 2, 0}
+//	fmt.Printf("c0.points=%v\n", c0.points)
+	c0.variance = variance(c0, ed)
+	fmt.Printf("variance=%f\n", c0.variance)
 
-	clusters := []cluster{c0,c1}
-	fmt.Printf("c0.numpoints=%d + c1.numpoints=%d\n", c0.numpoints(), c1.numpoints())
-	R := c0.numpoints() + c1.numpoints()
-	fmt.Printf("R=%d\n", R)
+	clusters := []cluster{c0}
+	R, _ := points.GetSize()
 	ll := loglikelih(R, clusters)
 	fmt.Printf("\nll=%f\n", ll)
 
-	bic := calcbic(R, 2, clusters)
-	fmt.Printf("bic=%f\n", bic)
+//	bic := calcbic(R, 2, clusters)
+//	fmt.Printf("bic=%f\n", bic)
 }
-*/

@@ -15,9 +15,9 @@ type VectorMeasurer interface {
 	CalcDist(a, b *matrix.DenseMatrix) (dist float64)
 }
 
-type VectorDistance struct {}
+type vectorDistance struct {}
 
-type EuclidDist VectorDistance
+type EuclidDist vectorDistance
 
 // CalcDist finds the Euclidean distance between points.
 // sqrt( \sigma i = 1 to N (q_i - p_i)^2 )

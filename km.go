@@ -51,7 +51,7 @@ type CentroidChooser interface {
 }
 
 // RandCentroids picks k uniformly distributed points from within the bounds of the dataset
-type RandCentroids struct {}
+type randCentroids struct {}
 
 // DataCentroids picks k distinct points from the dataset
 type DataCentroids struct {}
@@ -155,7 +155,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 
 // chooseCentroids picks random centroids based on the min and max values in the matrix
 // and return a k by cols matrix of the centroids.
-func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+func (c randCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
 
@@ -251,71 +251,76 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // Use a different centroid chooser for main process and bisection?
 func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
 	R, M := datapoints.GetSize()
-	models := make([]Model, kup)
+	models := make([]Model,0)
 	errs := make(map[string]error)
 
-	fmt.Printf("=======Models klow=%d kup=%d\n", klow, kup)
 	for k := klow; k <= kup; k++ {
-		fmt.Printf("\nKloop Top: k=%d\n", k)
+		fmt.Printf("\n=======Models klow=%d kup=%d", klow, kup)
+		fmt.Printf("\nModels: Top: k=%d\n", k)
 		bufclusters := make([]cluster, 0)
 
-		fmt.Printf("Kloop: Before Kmeansp k=%d\n", k)
+		fmt.Printf("Models: Before Kmeansp top loop k=%d\n", k)
 		clusters, err := Kmeansp(datapoints, k, cc, measurer)
 		if err != nil {
 			errs[strconv.Itoa(k)] = err
 		}
-		fmt.Printf("Kloop: After Kmeansp len(clusters)=%d\n", len(clusters))
-
+		fmt.Printf("Models: After Kmeansp top loop k=%d len(clusters)=%d\n", k, len(clusters))
+		for i, clust := range clusters {
+			fmt.Printf("Models: cluster[%d].points=%v\n", i, clust.points)
+		}
 		
 		// clusters is a []cluster. 
 		// bisect each clusters and see if you can get a better BIC
 		// You are comparing ModelA with the one centroid to ModelA_1
 		// bisected with two centroids.
 		for j, clust := range clusters {
-			fmt.Printf("Biloop: Top j=%d\n", j)
 			clust.variance = variance(clust, measurer)
-
 			parentbic := calcbic(clust.numpoints(), M, []cluster{clust})
-			fmt.Printf("Biloop: parentbic=%f\n", parentbic)
 
-			fmt.Printf("Biloop: Before Kmeansp: j=%d clust.points=%v  centroid=%v  clust.variance=%f\n", j, clust.points, clust.centroid, clust.variance)
+			fmt.Printf("Models:biloop: parentbic=%v\n", parentbic)
+			fmt.Printf("Models:biloop: Before Kmeansp: j=%d clust.points=%v  centroid=%v\n", j, clust.points, clust.centroid)
+			fmt.Printf("Models:biloop: Before Kmeansp: j=%d clust.variance=%f\n", j, clust.variance)
+
+			if clust.numpoints() < 3 {
+				bufclusters = append(bufclusters, clust)
+				fmt.Printf("Models:biloop: j=%d numpoints=%d\n", j, clust.numpoints() )
+				continue
+			}			
+
 			biclusters, berr := Kmeansp(clust.points, 2, cc, measurer)
 			if berr != nil {
 				idx := strconv.Itoa(k)+"."+strconv.Itoa(j)
 				errs[idx] = berr
 				continue
 			}
+
+			fmt.Printf("Models:biloop: After Kmeansp() j=%d len(biclusters)=%d\n", j, len(biclusters))
 			for _, biclust := range biclusters {
 			    biclust.variance = variance(biclust, measurer)
+				fmt.Printf("Models:biloop:variance calc: biclust.points=%v\n variance=%f\n", biclust.points, biclust.variance)
 			}
 
-			fmt.Printf("Biloop: After Kmeansp: j=%d len(biclusters)=%d\n", j, len(biclusters))
-			for i, clust := range biclusters {
-				fmt.Printf("Biloop: After Kmeansp: bicluster[%d]=%v\n variance=%f\n", i, clust.points, clust.variance)
-			}
-		
 			//Compare the BIC of this model to the parent
 			childbic := calcbic(clust.numpoints(), M, biclusters)
-			
-			fmt.Printf("Biloop: j=%d parentbic=%f childbic=%f\n", j, parentbic, childbic)
+			fmt.Printf("Models:biloop: j=%d parentbic=%f childbic=%f\n", j, parentbic, childbic)
+
 			// Whichever model is better goes into the array of clusters
 			// for this model k.
 			if parentbic >= childbic { 
 				bufclusters = append(bufclusters, clust)
+				fmt.Printf("Models:biloop: j=%d parentbic %f wins\n", j, parentbic)
 			}
 
 			if childbic > parentbic {
-					bufclusters = append(bufclusters, biclusters...)
+				bufclusters = append(bufclusters, biclusters...)
+				fmt.Printf("Models:biloop: j=%d chilcbic %f wins\n", j, childbic)
 			} 
 		}
 		// Add this model to the model slice
 		modelbic := calcbic(R, M, bufclusters) //<==ERROR
 		m := Model{modelbic, bufclusters}
-		if k == klow {
-			models[0] = m
-		} else {
-			models = append(models, m)
-		}
+		fmt.Printf("Models: k=%d modelbic=%f\n", k, modelbic)
+		models = append(models, m)
 	}
 	return models, errs
 }
@@ -383,6 +388,8 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 		done := make(chan int, numworkers)
 
 		// Pair each point with its closest centroid.
+		//TODO Split points into quartiles and have one goroutine per quartile 
+		// job preparation
 		go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, measurer, results)
 		for i := 0; i < numworkers; i++ {
 			go doPairPointCentroidJobs(done, jobs)
@@ -649,7 +656,15 @@ func loglikelih(R int, c []cluster) float64 {
 //		fmt.Printf("t2=%f\n", t2)
 
 //		fmt.Printf("t3: c[%d].dim=%d  c[%d].variance=%f\n", i,c[i].dim, i, c[i].variance)
-		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].variance)
+		// This is the Bob's Your Uncle smoothing factor.  If the variance is zero , the 
+		// fit can't be any better and will drive the log likelihood to Infinity.
+		var v float64
+		if c[i].variance == 0 {
+			v = 0.0001
+		} else {
+			v = c[i].variance
+		}
+		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * v)
 //		fmt.Printf("t3=%f\n", t3)
 
 		t4 := ((fRn - 1) / 2)
@@ -670,6 +685,7 @@ func loglikelih(R int, c []cluster) float64 {
 func loglikelihMoore(R, K int, c []cluster) float64 {
 	ll := 0.0
 
+	//TODO If variance == 0 return 0.1
 	for _, clust := range c {
 		Rn := float64(clust.numpoints())
 		t1 := (Rn / 2) * math.Log(2 * math.Pi)
