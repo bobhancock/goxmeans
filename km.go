@@ -46,6 +46,9 @@ func Atof64(s string) (f float64, err error) {
 	return float64(f64), err
 }
 
+// CentroidChooser is the interface that wraps CentroidChooser function.
+//
+// CetnroidChooser returns a matrix of K coordinates in M dimensions.
 type CentroidChooser interface {
 	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
 }
@@ -61,6 +64,7 @@ type EllipseCentroids struct {
 	frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
 }
 
+// Model is a statistical model with a BIC score and a collection of clusters.
 type Model struct {
 	bic float64
 	clusters []cluster
@@ -74,11 +78,13 @@ type cluster struct {
 	variance float64
 }
 
+// numpoints returns the number of points in a cluster.
 func (c cluster) numpoints() int {
 	r, _ := c.points.GetSize()
 	return r
 }
 
+// numcentroids returns the number of centroids for a cluster.  This should normally be 1.
 func (c cluster) numcentroids() int {
 	r, _ := c.centroid.GetSize()
 	return r
@@ -154,7 +160,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 }
 
 // chooseCentroids picks random centroids based on the min and max values in the matrix
-// and return a k by cols matrix of the centroids.
+// and return a k by m matrix of the centroids.
 func (c randCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
@@ -184,15 +190,13 @@ func (c randCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids
 }
 
-// DataCentroids picks k distinct points from the dataset
+// DataCentroids picks k distinct points from the dataset.  If k is > points in
+// the matrix then k is set to the number of points.
 func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
-	// Can't return error of it does not implement CentroidChooser
-	// TODO How to deal with this? Should CentroidChooser return err?
 	if k > rows {
-//		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
 		k = rows
 	}
 
@@ -209,7 +213,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 	return centroids
 }
 
-// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
+// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset.
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
@@ -246,9 +250,6 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // TODO Parallelize bisection of clusters
 // TODO Allow spearate CentroidChoosers for parent and child models.
 //
-// Why do some models have zero clusters?
-// With a large number of centroids why is variance inf?
-// Use a different centroid chooser for main process and bisection?
 func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
 	R, M := datapoints.GetSize()
 	models := make([]Model,0)
@@ -335,7 +336,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 // 2. Assign each object to the group that has the closest centroid.
 //
 // 3. When all objects have been assigned, recalculate the positions of the K centroids
-// by calculating the mean of all cooridnates in a group (i.e., cluster) and making that
+// by calculating the mean of all cooridnates in a cluster and making that
 // the new centroid.
 //
 // 4. Repeat Steps 2 and 3 until the centroids no longer move.
@@ -348,7 +349,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 //  |_____    __________|
 // 
 //
-// CentPointDist is ax R x 2 matrix.  The rows have a 1:1 relationship to 
+// CentPointDist is ax R x M matrix.  The rows have a 1:1 relationship to 
 // the rows in datapoints.  Column 0 contains the row number in centroids
 // that corresponds to the centroid for the datapoint in row i of this matrix.
 // Column 1 contains (x_i - mu(i))^2.
@@ -451,8 +452,8 @@ type CentroidPoint struct {
 	distPointToCentroidSq float64
 }
 
-// PairPointCentroidJobs stores the elements that defines the job that pairs a 
-// point (i.e., a data point) with a centroid.
+// PairPointCentroidJobs stores the elements that define the job that pairs a 
+// point with a centroid.
 type PairPointCentroidJob struct {
 	point, centroids, CentPointDist *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
@@ -460,8 +461,8 @@ type PairPointCentroidJob struct {
 	measurer matutil.VectorMeasurer
 }
 
-// PairPointCentroidResult stores the results of pairing a data point with a 
-// centroids.
+// PairPointCentroidResult stores the results of pairing a point with a 
+// centroid.
 type PairPointCentroidResult struct {
 	centroidRowNum float64
 	distSquared float64
@@ -510,8 +511,7 @@ func assessClusters(CentPointDist *matrix.DenseMatrix, results <-chan PairPointC
 	return change
 }
 	
-// AssignPointToCentroid checks a data point against all centroids and returns the best match.
-// The centroid is identified by the row number in the centroid matrix.
+// PairPointCentroid pairs a point with the closest centroids.
 func (job PairPointCentroidJob) PairPointCentroid() {
 	var err error = nil
     distPointToCentroid := math.Inf(1)
@@ -535,9 +535,9 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
-// points = an R x M matrix of all data point coordinates.
+// points = an R x M matrix of all point coordinates.
 //
-// CentPointDist =  R x 2 matrix.  Column 0 contains the index {0...K} of
+// CentPointDist =  R x M+1 matrix.  Column 0 contains the index {0...K-1} of
 // a centroid.  Column 1 contains (datapoint_i - mu(i))^2 
 // 
 // centroids =  K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
@@ -669,30 +669,6 @@ func loglikelih(R int, c []cluster) float64 {
 
 		ll += (t1 - t2 - t3 - t4)
 //		fmt.Printf("loglikelih: ll=%f\n", ll)
-	}
-	return ll
-}
-
-// As stated in the Moore-Pellig paper.
-// R            R  * M                R  - K                     
-//  n            n                     n                         
-// --log(2Pi) - ------log(variance) - ------ + R logr{n} - R log 
-//  2              2                     2      n           n   n
-//
-func loglikelihMoore(R, K int, c []cluster) float64 {
-	ll := 0.0
-
-	//TODO If variance == 0 return 0.1
-	for _, clust := range c {
-		Rn := float64(clust.numpoints())
-		t1 := (Rn / 2) * math.Log(2 * math.Pi)
-		t2 := ((Rn * float64(clust.dim)) / 2) * math.Log(clust.variance)
-		t3 := (Rn - float64(K)) / 2
-		t4 := Rn * math.Log(Rn)
-		t5 := Rn * math.Log(float64(R))
-
-		ll += -t1 - t2 - t3 + t4 - t5
-		fmt.Printf("loglikelih: ll=%f\n", ll)
 	}
 	return ll
 }
