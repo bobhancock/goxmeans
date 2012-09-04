@@ -1,4 +1,4 @@
-package goxmeans
+ package goxmeans
 
 import (
 	"bufio"
@@ -12,7 +12,7 @@ import (
 
 var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.0,2.0,
 	-3.0,2.0,
-	0.355083,-3.376585,
+	0.355083,-3.376585,   
 	1.852435,3.547351,
 	-2.078973,2.552013,
 	-0.993756,-0.884433,
@@ -188,7 +188,7 @@ func TestKmeansp(t *testing.T) {
 
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
 	fmt.Printf("datapoints=%v\n", datapoints)
-	clusters, err := Kmeansp(datapoints, 2, cc, ed)
+	clusters, err := kmeansp(datapoints, 2, cc, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
@@ -612,4 +612,11 @@ func TestZarc(t *testing.T) {
 
 //	bic := calcbic(R, 2, clusters)
 //	fmt.Printf("bic=%f\n", bic)
+}
+
+func TestZarcEllipse(t *testing.T) {
+	ec := EllipseCentroids{0.1}
+	centroids := ec.ChooseCentroids(DATAPOINTS_D, 2)
+	fmt.Printf("centroids=%v\n", centroids)
+	fmt.Printf("row1=%v\n", centroids.GetRowVector(1))
 }

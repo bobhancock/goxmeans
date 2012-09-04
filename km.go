@@ -24,7 +24,7 @@ import (
 //	"runtime"
 //	"log"
 	"github.com/bobhancock/gomatrix/matrix"
-	"goxmeans/matutil"
+//	"goxmeans/matutil"
 )
 
 //var numworkers = runtime.NumCPU()
@@ -66,6 +66,7 @@ type EllipseCentroids struct {
 
 // Model is a statistical model with a BIC score and a collection of clusters.
 type Model struct {
+	numcentroids int
 	bic float64
 	clusters []cluster
 }
@@ -216,7 +217,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset.
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
-	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
+	var xmin, xmax, ymin, ymax = GetBoundaries(mat) 
 	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
 	centroids := matrix.Zeros(k, cols)
 	rx, ry := xmax - x0, ymax - y0  
@@ -240,6 +241,62 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 	return vectorSum, nil
 }
 
+// Measurer finds the distance between the points in the columns
+type VectorMeasurer interface {
+	CalcDist(a, b *matrix.DenseMatrix) (dist float64)
+}
+
+type vectorDistance struct {}
+
+type EuclidDist vectorDistance
+
+// CalcDist finds the Euclidean distance between points.
+// sqrt( \sigma i = 1 to N (q_i - p_i)^2 )
+func (ed EuclidDist) CalcDist(p, q *matrix.DenseMatrix) float64 {
+	diff := matrix.Difference(q, p)
+	sqrd := diff.Pow(2) // square each value in the matrix
+	sum := sqrd.SumRows() 
+	s := sum.Get(0, 0)
+	return math.Sqrt(s)
+}
+
+type ManhattanDist struct {}
+
+// CalcDist finds the ManhattanDistance which is the sum of the aboslute 
+// difference of the coordinates.   Also known as rectilinear distance, 
+// city block distance, or taxicab distance.
+
+func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) float64 {
+	return math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
+}
+
+// GetBoundaries returns the max and min x and y values for a dense matrix
+// of shape m x 2.
+func GetBoundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
+	rows, cols := mat.GetSize()
+	if cols != 2 {
+		// TODO - should there be an err return, or should we panic here?
+	}
+	xmin, ymin = mat.Get(0,0), mat.Get(0,1)
+	xmax, ymax = mat.Get(0,0), mat.Get(0,1)
+	for i := 1; i < rows; i++ {
+		xi, yi := mat.Get(i, 0), mat.Get(i, 1)
+		
+		if xi > xmax{
+			xmax = xi
+		} else if xi < xmin {
+			xmin = xi
+		}
+
+		if yi > ymax{
+			ymax = yi
+		} else if yi < ymin {
+			ymin = yi
+		}
+	}
+	return
+}
+
 // Models runs k-means for k lower bound to k upper bound on a data set.
 // Once the k centroids have converged each cluster is bisected and the BIC
 // of the orginal cluster (parent = a model with one centroid) to the 
@@ -250,7 +307,7 @@ func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
 // TODO Parallelize bisection of clusters
 // TODO Allow spearate CentroidChoosers for parent and child models.
 //
-func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
+func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
 	R, M := datapoints.GetSize()
 	models := make([]Model,0)
 	errs := make(map[string]error)
@@ -261,7 +318,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 		bufclusters := make([]cluster, 0)
 
 		fmt.Printf("Models: Before Kmeansp top loop k=%d\n", k)
-		clusters, err := Kmeansp(datapoints, k, cc, measurer)
+		clusters, err := kmeansp(datapoints, k, cc, measurer)
 		if err != nil {
 			errs[strconv.Itoa(k)] = err
 		}
@@ -288,7 +345,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 				continue
 			}			
 
-			biclusters, berr := Kmeansp(clust.points, 2, cc, measurer)
+			biclusters, berr := kmeansp(clust.points, 2, cc, measurer)
 			if berr != nil {
 				idx := strconv.Itoa(k)+"."+strconv.Itoa(j)
 				errs[idx] = berr
@@ -319,14 +376,14 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 		}
 		// Add this model to the model slice
 		modelbic := calcbic(R, M, bufclusters) //<==ERROR
-		m := Model{modelbic, bufclusters}
+		m := Model{k, modelbic, bufclusters}
 		fmt.Printf("Models: k=%d modelbic=%f\n", k, modelbic)
 		models = append(models, m)
 	}
 	return models, errs
 }
 	
-// Kmeansp partitions datapoints into K clusters.  This results in a partitioning of
+// kmeansp partitions datapoints into K clusters.  This results in a partitioning of
 // the data space into Voronoi cells.  The problem is NP-hard so here we attempt
 // to parallelize as many processes as possible to reduce the running time.
 //
@@ -359,7 +416,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
 //
-func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]cluster, error) {
+func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer VectorMeasurer) ([]cluster, error) {
 /*  datapoints				  CentPoinDist            centroids				  
                                  ________________
    ____	  ____				  __|__	  ______	 |	  ____	___________	  
@@ -458,7 +515,7 @@ type PairPointCentroidJob struct {
 	point, centroids, CentPointDist *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
 	rowNum int
-	measurer matutil.VectorMeasurer
+	measurer VectorMeasurer
 }
 
 // PairPointCentroidResult stores the results of pairing a point with a 
@@ -472,7 +529,7 @@ type PairPointCentroidResult struct {
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
 func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, centroids,
-	CentPointDist *matrix.DenseMatrix, measurer matutil.VectorMeasurer, results chan<- PairPointCentroidResult) {
+	CentPointDist *matrix.DenseMatrix, measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
 	numRows, _ := datapoints.GetSize()
     for i := 0; i < numRows; i++ { 
 		point := datapoints.GetRowVector(i)
@@ -560,7 +617,7 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // R - K /__  i          2 \/__  i /  
 //                (R - K)      
 //    
-func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
+func variance(c cluster, measurer VectorMeasurer) float64 {
 	if matrix.Equals(c.points, c.centroid) == true {
 		return 0.0
 	}
@@ -596,7 +653,7 @@ func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 //
 // This is just the probability that a point exists (Ri / R) times the normal, or Gaussian,  distribution 
 // for the number of dimensions.
-func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
+func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer VectorMeasurer) float64 {
 	exists := float64(Ri / R)
 	normdist := normDist(M, V, point, mu, measurer)
 	prob := exists * normdist
@@ -608,7 +665,7 @@ func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matu
 // M = # of dimensions
 // V = variance of Dn
 // mean(i) =  the mean distance between all points in Dn and a centroid. 
-func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) float64 {
+func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer VectorMeasurer) float64 {
 	dist := measurer.CalcDist(point, mean)
 	stddev := math.Sqrt(V)
 	sqrt2pi := math.Sqrt(2.0 * math.Pi)
