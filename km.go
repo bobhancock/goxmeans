@@ -206,15 +206,15 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
-	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
+	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat)
 	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
 	centroids := matrix.Zeros(k, cols)
 	rx, ry := xmax - x0, ymax - y0  
 	thetaInit := rand.Float64() * math.Pi
 
 	for i := 0; i < k; i++ {
-		centroids.Set(i, 0, rx * c.frac * math.Cos(thetaInit + float64(i) * math.Pi / float64(k)))
-		centroids.Set(i, 1, ry * c.frac * math.Sin(thetaInit + float64(i) * math.Pi / float64(k)))
+		centroids.Set(i, 0, rx * c.frac * math.Cos(thetaInit + float64(i) * 2.0 * math.Pi / float64(k)))
+		centroids.Set(i, 1, ry * c.frac * math.Sin(thetaInit + float64(i) * 2.0 * math.Pi / float64(k)))
 	}
 	return centroids
 }
