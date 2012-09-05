@@ -127,7 +127,6 @@ func TestValidReturnLoad(t *testing.T) {
 	}
 }
 
-/* Test fails
 func TestRandCentroids(t *testing.T) {
 	rows := 3
 	cols := 3
@@ -144,7 +143,7 @@ func TestRandCentroids(t *testing.T) {
 		}
 	}
 }
-*/
+
 
 
 func TestComputeCentroid(t *testing.T) {

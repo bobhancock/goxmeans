@@ -185,13 +185,10 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 }
 
 // DataCentroids picks k distinct points from the dataset
-func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
-	if k > rows {
-		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
-	}
 
 	chosenIdxs := make(map [int]bool, k)
 	for len(chosenIdxs) < k {
@@ -203,7 +200,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 		centroids.SetRowVector(mat.GetRowVector(idx).Copy(), i)
 		i += 1
 	}
-	return centroids, nil
+	return centroids
 }
 
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
