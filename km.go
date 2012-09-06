@@ -716,7 +716,7 @@ func loglikelih(R int, c []cluster) float64 {
 		// This is the Bob's Your Uncle smoothing factor.  If the variance is zero , the 
 		// fit can't be any better and will drive the log likelihood to Infinity.
 		if c[i].variance == 0 {
-			c[i].variance += 0.0001
+			c[i].variance = math.Nextafter(0, 1)
 		} 
 		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].variance)
 //		fmt.Printf("t3=%f\n", t3)

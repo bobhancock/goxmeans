@@ -434,53 +434,7 @@ func TestLogLikelih(t *testing.T) {
 	}
 }
 
-/*func TestLogLikelihMoore(t *testing.T) {
-	// Model D - one cluster
-	R, M := DATAPOINTS_D.GetSize()
-	K := 4
-	var ed EuclidDist
 
-	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
-	vard := variance(cd, ed)
-	cd.variance = vard
-
-	cslice := make([]cluster, 1)
-	cslice[0] = cd
-
-	ll := loglikelihMoore(R, K,  cslice)
-
-	epsilon := .000001
-	E := -35.042733
-	na := math.Nextafter(E, E + 1) 
-	diff := math.Abs(ll - na) 
-
-	if diff > epsilon {
-		t.Errorf("TestLoglikeli: For model D expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll, diff, epsilon)
-	}
-
-	// Model Dn - two clusters
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
-	v0 := variance(c0, ed)
-	c0.variance = v0
-
-
-	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
-	v1 := variance(c1, ed)
-	c1.variance = v1
-
-	cslicen := []cluster{c0, c1}
-
-	ll_n := loglikelihMoore(R, K, cslicen)
-
-	E = -18.198142
-	na = math.Nextafter(E, E + 1) 
-	diff = math.Abs(ll_n - na) 
-
-	if diff > epsilon {
-		t.Errorf("TestLoglikeli: For model Dn expected %f but received %f.  The difference %f exceeds epsilon %f", E, ll_n, diff, epsilon)
-	}
-}
-*/
 // Create two tight clusters and test the scores for a model with 1 centroid 
 // that is equidistant between the two and a model with 2 centroids where 
 // the centroids are in the center of each cluster.
