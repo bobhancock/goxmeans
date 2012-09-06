@@ -562,7 +562,7 @@ func TestCalcbic(t *testing.T) {
 	bic := calcbic(R, M, cslice)
 
 	epsilon := .000001
-	E := -45.973683
+	E := -45.513404
 	na := math.Nextafter(E, E + 1) 
 	diff := math.Abs(bic - na) 
 
