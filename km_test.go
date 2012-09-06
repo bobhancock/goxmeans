@@ -7,7 +7,6 @@ import (
 	"math"
 	"testing"
 	"github.com/bobhancock/gomatrix/matrix"
-	"goxmeans/matutil"
 )
 
 var DATAPOINTS = matrix.MakeDenseMatrix([]float64{3.0,2.0,
@@ -44,7 +43,7 @@ func makeCentPointDist(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseM
 	done := make(chan int)
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 
 	go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, ed, results)
 		
@@ -181,7 +180,7 @@ func TestKmeansp(t *testing.T) {
 //		return
 //	}
 	
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 //	var cc randCentroids
 	var cc DataCentroids
 //	cc := EllipseCentroids{0.1}
@@ -252,7 +251,7 @@ func TestAddPairPointToCentroidJob(t *testing.T) {
 	centroidSqDist := matrix.Zeros(r, c)
 	centroids := matrix.Zeros(r, c)
 
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 	
 	go addPairPointCentroidJobs(jobs, dataPoints, centroids, centroidSqDist,ed ,results)
 	i := 0
@@ -277,7 +276,7 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
-	var md matutil.ManhattanDist
+	var md ManhattanDist
 
 	go addPairPointCentroidJobs(jobs, dataPoints, centroids, centroidSqDist, md, results)
 
@@ -303,7 +302,7 @@ func TestAssessClusters(t *testing.T) {
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
-	var md matutil.ManhattanDist
+	var md ManhattanDist
 	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, CentPointDist, md, results)
 
 	for i := 0; i < r; i++ {
@@ -333,9 +332,9 @@ func TestPointProb(t *testing.T) {
 	mean := matrix.MakeDenseMatrix([]float64{6, 8},
 		1,2)
 
-	var ed matutil.EuclidDist 
+	var ed EuclidDist 
 
-	//	pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer matutil.VectorMeasurer) (float64, error) 
+	//	pointProb(R, Ri, M int, V float64, point, mean *matrix.DenseMatrix, measurer VectorMeasurer) (float64, error) 
 	pp := pointProb(R, Ri, M, V, point, mean, ed)
 
 	E :=  0.011473
@@ -359,7 +358,7 @@ func TestFreeparams(t *testing.T) {
 }
 
 func TestVariance(t *testing.T) {
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 	_, dim := DATAPOINTS_D.GetSize()
 	// Model D
 	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0}
@@ -392,7 +391,7 @@ func TestVariance(t *testing.T) {
 func TestLogLikelih(t *testing.T) {
 	// Model D - one cluster
 	R, M := DATAPOINTS_D.GetSize()
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 
 	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(cd, ed)
@@ -439,7 +438,7 @@ func TestLogLikelih(t *testing.T) {
 	// Model D - one cluster
 	R, M := DATAPOINTS_D.GetSize()
 	K := 4
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 
 	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(cd, ed)
@@ -513,7 +512,7 @@ func TestBic(t *testing.T) {
 	R, M := DATAPOINTS_D.GetSize()
 	K, _ := CENTROIDS_D.GetSize()
 	numparams := freeparams(K, M)
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 
 	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(c, ed)
@@ -552,7 +551,7 @@ func TestBic(t *testing.T) {
 }
 
 func TestCalcbic(t *testing.T) {
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 	R, M := DATAPOINTS_D.GetSize()
 	
 	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
@@ -573,7 +572,7 @@ func TestCalcbic(t *testing.T) {
 } 
 
 func TestModels(t *testing.T) {
-	var ed matutil.EuclidDist
+	var ed EuclidDist
 //	cc := EllipseCentroids{0.5}
 	var cc DataCentroids
 //	var cc randCentroids
@@ -597,7 +596,7 @@ func TestModels(t *testing.T) {
 }
 
 func TestZarc(t *testing.T) {
-	var ed  matutil.EuclidDist
+	var ed  EuclidDist
 	points := DATAPOINTS_D
 	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
 	c0 := cluster{points, centroid, 2, 0}

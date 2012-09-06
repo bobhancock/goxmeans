@@ -446,7 +446,7 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 		done := make(chan int, numworkers)
 
 		// Pair each point with its closest centroid.
-		//TODO Split points into quartiles and have one goroutine per quartile 
+		//TODO Benchmark to decide if there is a bottleneck between job preparation and execution.
 		// job preparation
 		go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, measurer, results)
 		for i := 0; i < numworkers; i++ {
@@ -764,10 +764,10 @@ func freeparams(K, M int) int {
 //      j       j         2       
 //
 func bic(loglikelih float64, numparams, R int) (float64) {
-	return loglikelih - (float64(numparams) / 2.0) - math.Log(float64(R))
+	return loglikelih - (float64(numparams) / 2.0) * math.Log(float64(R))
 }
 
-// calcbic calculate BIC from R, M, and a slice of clusters
+// calcbic calculates BIC from R, M, and a slice of clusters
 func calcbic(R, M int, clusters []cluster) float64 {
 	ll := loglikelih(R, clusters)
 	numparams := freeparams(len(clusters), M)
