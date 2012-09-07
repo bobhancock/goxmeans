@@ -307,9 +307,8 @@ func GetBoundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
 // 
 // TODO How many bisections should be tried?
 // TODO Parallelize bisection of clusters
-// TODO Allow spearate CentroidChoosers for parent and child models.
 //
-func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
+func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
 	R, M := datapoints.GetSize()
 	models := make([]Model,0)
 	errs := make(map[string]error)
@@ -347,7 +346,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 				continue
 			}			
 
-			biclusters, berr := kmeansp(clust.points, 2, cc, measurer)
+			biclusters, berr := kmeansp(clust.points, 2, bisectcc, measurer)
 			if berr != nil {
 				idx := strconv.Itoa(k)+"."+strconv.Itoa(j)
 				errs[idx] = berr
