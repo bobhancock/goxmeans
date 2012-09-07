@@ -24,7 +24,6 @@ import (
 //	"runtime"
 //	"log"
 	"github.com/bobhancock/gomatrix/matrix"
-//	"goxmeans/matutil"
 )
 
 //var numworkers = runtime.NumCPU()
@@ -449,7 +448,9 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 		// Pair each point with its closest centroid.
 		//TODO Benchmark to decide if there is a bottleneck between job preparation and execution.
 		// job preparation
-		go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, measurer, results)
+		// TODO don't pass CentPointDist, have the routine report back
+//		go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, measurer, results)
+		go addPairPointCentroidJobs(jobs, datapoints, centroids, measurer, results)
 		for i := 0; i < numworkers; i++ {
 			go doPairPointCentroidJobs(done, jobs)
 		}
@@ -502,7 +503,7 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 	//return centroids, CentPointDist, nil
 	return clusters, nil
 }
-
+ 
 // CentroidPoint stores the row number in the centroids matrix and
 // the distance squared between the centroid and the point.
 type CentroidPoint struct {
@@ -513,7 +514,8 @@ type CentroidPoint struct {
 // PairPointCentroidJobs stores the elements that define the job that pairs a 
 // point with a centroid.
 type PairPointCentroidJob struct {
-	point, centroids, CentPointDist *matrix.DenseMatrix
+//	point, centroids, CentPointDist *matrix.DenseMatrix
+	point, centroids *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
 	rowNum int
 	measurer VectorMeasurer
@@ -529,13 +531,15 @@ type PairPointCentroidResult struct {
 }
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
-func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, centroids,
-	CentPointDist *matrix.DenseMatrix, measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
+//func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, centroids,
+//	CentPointDist *matrix.DenseMatrix, measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
+func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, centroids *matrix.DenseMatrix,	measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
 	numRows, _ := datapoints.GetSize()
     for i := 0; i < numRows; i++ { 
 		point := datapoints.GetRowVector(i)
 //		fmt.Printf("398: i=%d numRows=%d\n",i,numRows)
-		jobs <- PairPointCentroidJob{point, centroids, CentPointDist, results, i, measurer}
+//		jobs <- PairPointCentroidJob{point, centroids, CentPointDist, results, i, measurer}
+		jobs <- PairPointCentroidJob{point, centroids, results, i, measurer}
 	}
 	close(jobs)
 }
@@ -546,6 +550,27 @@ func doPairPointCentroidJobs(done chan<- int, jobs <-chan PairPointCentroidJob) 
 		job.PairPointCentroid()
 	}
 	done <- 1
+}
+
+// PairPointCentroid pairs a point with the closest centroids.
+func (job PairPointCentroidJob) PairPointCentroid() {
+	var err error = nil
+    distPointToCentroid := math.Inf(1)
+    centroidRowNum := float64(-1)
+	squaredErr := float64(0)
+	k, _ := job.centroids.GetSize()
+
+	// Find the centroid that is closest to this point.
+    for j := 0; j < k; j++ { 
+     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+        if distJ  < distPointToCentroid {
+            distPointToCentroid = distJ
+            centroidRowNum = float64(j)
+		} 
+ 		squaredErr = math.Pow(distPointToCentroid, 2)
+		//fmt.Printf("squaredErr=%f\n", squaredErr)
+	}	
+	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
 }
 
 // awaitPairPointCentroidCompletion waits until all jobs are completed.
@@ -569,26 +594,6 @@ func assessClusters(CentPointDist *matrix.DenseMatrix, results <-chan PairPointC
 	return change
 }
 	
-// PairPointCentroid pairs a point with the closest centroids.
-func (job PairPointCentroidJob) PairPointCentroid() {
-	var err error = nil
-    distPointToCentroid := math.Inf(1)
-    centroidRowNum := float64(-1)
-	squaredErr := float64(0)
-	k, _ := job.centroids.GetSize()
-
-	// Find the centroid that is closest to this point.
-    for j := 0; j < k; j++ { 
-     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
-        if distJ  < distPointToCentroid {
-            distPointToCentroid = distJ
-            centroidRowNum = float64(j)
-		} 
- 		squaredErr = math.Pow(distPointToCentroid, 2)
-		//fmt.Printf("squaredErr=%f\n", squaredErr)
-	}	
-	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
-}
 
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
