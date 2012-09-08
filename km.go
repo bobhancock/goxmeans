@@ -190,7 +190,6 @@ func (c randCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids
 }
 
-
 // DataCentroids picks k distinct points from the dataset.  If k is > points in
 // the matrix then k is set to the number of points.
 func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
@@ -331,7 +330,26 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc Centroid
 		// bisect each clusters and see if you can get a better BIC
 		// You are comparing ModelA with the one centroid to ModelA_1
 		// bisected with two centroids.
-		for j, clust := range clusters {
+		bufsize := 0.0
+		for _, clust := range clusters {
+			numRows, _ := clust.points.GetSize()
+			bufsize = math.Max(float64(bufsize), float64(numRows))
+		}
+		bijobs := make(chan bisectJob, numworkers)
+		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
+		bidone := make(chan int, numworkers)
+
+		go addBisectJobs(bijobs, clusters, bisectcc, measurer, biresults)
+		for i := 0; i < numworkers; i++ {
+			go doBisectJob(bidone, bijobs)
+		}
+		go awaitBisectJobsCompletion(bidone, biresults)
+		for biresult := range biresults {
+			bufclusters = append(bufclusters, biresult.clusters...)
+		}
+		// read results and add to models[]
+		
+/*		for j, clust := range clusters {
 			clust.variance = variance(clust, measurer)
 			parentbic := calcbic(clust.numpoints(), M, []cluster{clust})
 
@@ -374,6 +392,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc Centroid
 				fmt.Printf("Models:biloop: j=%d chilcbic %f wins\n", j, childbic)
 			} 
 		}
+*/
 		// Add this model to the model slice
 		modelbic := calcbic(R, M, bufclusters) //<==ERROR
 		m := Model{k, modelbic, bufclusters}
@@ -448,7 +467,6 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 		// Pair each point with its closest centroid.
 		//TODO Benchmark to decide if there is a bottleneck between job preparation and execution.
 		// job preparation
-		// TODO don't pass CentPointDist, have the routine report back
 //		go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, measurer, results)
 		go addPairPointCentroidJobs(jobs, datapoints, centroids, measurer, results)
 		for i := 0; i < numworkers; i++ {
@@ -594,7 +612,64 @@ func assessClusters(CentPointDist *matrix.DenseMatrix, results <-chan PairPointC
 	return change
 }
 	
+type bisectJob struct {
+	clust cluster
+	cc CentroidChooser
+	measurer VectorMeasurer
+	results chan<- bisectResult 
+}
 
+type bisectResult struct {
+	bic float64
+	clusters []cluster
+}
+
+func addBisectJobs(jobs chan<- bisectJob, clusters []cluster, cc CentroidChooser, measurer VectorMeasurer,  results chan<- bisectResult) {
+	for _, clust := range clusters {
+		jobs <- bisectJob{clust, cc, measurer, results}
+	}
+	close(jobs)
+}
+
+func doBisectJob(done chan<- int, jobs <-chan bisectJob) {
+	for job := range jobs {
+		job.bisectCluster()
+	}
+	done <- 1
+}
+
+func (job bisectJob) bisectCluster() {
+	// Calc parent BIC
+	R, M := job.clust.points.GetSize()
+	parentCluster := make([]cluster,0)
+	parentCluster = append(parentCluster, job.clust)
+
+	parentBIC := calcbic(R, M, parentCluster)
+	// Kmeansp with 2 centroids
+	clusters, err := kmeansp(job.clust.points, 2, job.cc, job.measurer)
+	if err != nil {
+	//TODO	do something
+		fmt.Println("ERROR")
+	}
+	// calc child BIC
+	childBIC := calcbic(R, M, clusters)
+	// store model with best score in result
+	if childBIC > parentBIC {
+		// store parent data in result
+		job.results <- bisectResult{childBIC, clusters}
+	} else {
+		// store child data in result
+		job.results <- bisectResult{parentBIC, parentCluster}
+	}
+}
+
+func awaitBisectJobsCompletion(done <- chan int, results chan bisectResult) {
+	for i := 0; i < numworkers; i++ {
+		<-done
+	}
+	close(results)
+}
+	
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
