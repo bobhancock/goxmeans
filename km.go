@@ -189,7 +189,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset.
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
-	var xmin, xmax, ymin, ymax = GetBoundaries(mat) 
+	var xmin, xmax, ymin, ymax = boundaries(mat) 
 
 	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
 	centroids := matrix.Zeros(k, cols)
@@ -243,15 +243,13 @@ func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) float64 {
 	return math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
 }
 
-// GetBoundaries returns the max and min x and y values for a dense matrix
-// of shape m x 2.
-func GetBoundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
-	rows, cols := mat.GetSize()
-	if cols != 2 {
-		// TODO - should there be an err return, or should we panic here?
-	}
+// boundaries returns the max and min x and y values for a dense matrix
+// of shape m x m.
+func boundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
+	rows, _ := mat.GetSize()
 	xmin, ymin = mat.Get(0,0), mat.Get(0,1)
 	xmax, ymax = mat.Get(0,0), mat.Get(0,1)
+
 	for i := 1; i < rows; i++ {
 		xi, yi := mat.Get(i, 0), mat.Get(i, 1)
 		
