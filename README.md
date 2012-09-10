@@ -19,8 +19,6 @@ Anthony Foglia
 
 Ralph Yozzo
 
-Variable Names
+kd-trees
 --------------
-Some of the variable names have turned out to be quite long.  We tried shortening some of them, but
-their purpose became too cryptic.  We would rather err on the side of clarity now and shorten
-them later if we can decide upon equally descriptive names.
+kd-trees will be in Phase 2.  Currently we are using matrices via the gomatrix library.

@@ -45,7 +45,7 @@ func makeCentPointDist(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseM
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 	var ed EuclidDist
 
-	go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, ed, results)
+	go addPairPointCentroidJobs(jobs, datapoints, centroids, ed, results)
 		
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
@@ -261,12 +261,12 @@ func TestAddPairPointToCentroidJob(t *testing.T) {
 	jobs := make(chan PairPointCentroidJob, r)
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 	dataPoints := matrix.Zeros(r, c)
-	centroidSqDist := matrix.Zeros(r, c)
+//	centroidSqDist := matrix.Zeros(r, c)
 	centroids := matrix.Zeros(r, c)
 
 	var ed EuclidDist
 	
-	go addPairPointCentroidJobs(jobs, dataPoints, centroids, centroidSqDist,ed ,results)
+	go addPairPointCentroidJobs(jobs, dataPoints, centroids, ed ,results)
 	i := 0
 	for ; i < r; i++ {
         <-jobs 
@@ -282,7 +282,7 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 	r := 4
 	c := 2
 	dataPoints := matrix.Zeros(r, c)
-	centroidSqDist := matrix.Zeros(r, c)
+//	centroidSqDist := matrix.Zeros(r, c)
 	centroids := matrix.Zeros(r, c)
 
 	done := make(chan int)
@@ -291,7 +291,7 @@ func TestDoPairPointCentroidJobs(t *testing.T) {
 
 	var md ManhattanDist
 
-	go addPairPointCentroidJobs(jobs, dataPoints, centroids, centroidSqDist, md, results)
+	go addPairPointCentroidJobs(jobs, dataPoints, centroids,  md, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
@@ -316,7 +316,7 @@ func TestAssessClusters(t *testing.T) {
 	results := make(chan PairPointCentroidResult, minimum(1024, r))
 
 	var md ManhattanDist
-	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS, CentPointDist, md, results)
+	go addPairPointCentroidJobs(jobs, DATAPOINTS, CENTROIDS,  md, results)
 
 	for i := 0; i < r; i++ {
 		go doPairPointCentroidJobs(done, jobs)
