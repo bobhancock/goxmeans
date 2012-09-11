@@ -548,13 +548,13 @@ func TestModels(t *testing.T) {
 	models, errs := Models(DATAPOINTS_D, klow, kup, cc, bisectcc, ed)
 	fmt.Printf("============Test\n")
 	for i := 0; i < len(models); i++ {
-		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].clusters), models[i].bic)
-		for j := 0; j < len(models[i].clusters); j++ {
+		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].Clusters), models[i].Bic)
+		for j := 0; j < len(models[i].Clusters); j++ {
 			fmt.Printf("cluster %d\n", j)
-			fmt.Printf("\tpoints=%v\n", models[i].clusters[j].points)
-			fmt.Printf("\tcentroid=%v\n", models[i].clusters[j].centroid)
-			fmt.Printf("\tdim=%v\n", models[i].clusters[j].dim)
-			fmt.Printf("\tvariance=%v\n", models[i].clusters[j].variance)
+			fmt.Printf("\tpoints=%v\n", models[i].Clusters[j].points)
+			fmt.Printf("\tcentroid=%v\n", models[i].Clusters[j].centroid)
+			fmt.Printf("\tdim=%v\n", models[i].Clusters[j].dim)
+			fmt.Printf("\tvariance=%v\n", models[i].Clusters[j].variance)
 		}
 	}
 
