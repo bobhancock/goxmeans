@@ -27,7 +27,7 @@ import (
 )
 
 var numworkers = runtime.NumCPU()
-//var numworkers = 1
+//var numworkers = 8
 
 // minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
@@ -277,21 +277,21 @@ type Model struct {
 
 // cluster models an individual cluster.
 type cluster struct {
-	points *matrix.DenseMatrix
-	centroid  *matrix.DenseMatrix
+	Points *matrix.DenseMatrix
+	Centroid  *matrix.DenseMatrix
 	dim int // number of dimensions
-	variance float64
+	Variance float64
 }
 
 // numpoints returns the number of points in a cluster.
 func (c cluster) numpoints() int {
-	r, _ := c.points.GetSize()
+	r, _ := c.Points.GetSize()
 	return r
 }
 
 // numcentroids returns the number of centroids for a cluster.  This should normally be 1.
 func (c cluster) numcentroids() int {
-	r, _ := c.centroid.GetSize()
+	r, _ := c.Centroid.GetSize()
 	return r
 }
 
@@ -304,8 +304,7 @@ func (c cluster) numcentroids() int {
 // TODO How many bisections should be tried?
 //
 func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
-	gp := runtime.GOMAXPROCS(numworkers)
-	fmt.Printf("gomaxprocs=%d\n", gp)
+	runtime.GOMAXPROCS(numworkers)
 
 	R, M := datapoints.GetSize()
 	models := make([]Model,0)
@@ -332,7 +331,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc Centroid
 		// bisected with two centroids.
 		bufsize := 0.0
 		for _, clust := range clusters {
-			numRows, _ := clust.points.GetSize()
+			numRows, _ := clust.Points.GetSize()
 			bufsize = math.Max(bufsize, float64(numRows))
 		}
 
@@ -467,7 +466,7 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 			centroids.SetRowVector(mean, cent)
 
 			clust := cluster{pointsInCluster, mean, M, 0}
-			clust.variance = variance(clust, measurer)
+			clust.Variance = variance(clust, measurer)
 			clusters = append(clusters, clust)
 			idx++
 		}
@@ -534,7 +533,8 @@ func (job PairPointCentroidJob) PairPointCentroid() {
             distPointToCentroid = distJ
             centroidRowNum = float64(j)
 		} 
- 		squaredErr = math.Pow(distPointToCentroid, 2)
+// 		squaredErr = math.Pow(distPointToCentroid, 2)
+ 		squaredErr = distPointToCentroid * distPointToCentroid
 	}	
 	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
 }
@@ -587,13 +587,13 @@ func doBisectJob(done chan<- int, jobs <-chan bisectJob) {
 }
 
 func (job bisectJob) bisectCluster() {
-	R, M := job.clust.points.GetSize()
+	R, M := job.clust.Points.GetSize()
 	parentCluster := make([]cluster,0)
 	parentCluster = append(parentCluster, job.clust)
 
 	parentBIC := calcbic(R, M, parentCluster)
 
-	clusters, err := kmeansp(job.clust.points, 2, job.cc, job.measurer)
+	clusters, err := kmeansp(job.clust.Points, 2, job.cc, job.measurer)
 	if err != nil {
 	//TODO	do something
 		fmt.Println("Bisect ERROR")
@@ -643,7 +643,7 @@ func awaitBisectJobsCompletion(done <- chan int, results chan bisectResult) {
 //                (R - K)      
 //    
 func variance(c cluster, measurer VectorMeasurer) float64 {
-	if matrix.Equals(c.points, c.centroid) == true {
+	if matrix.Equals(c.Points, c.Centroid) == true {
 		return 0.0
 	}
 
@@ -651,10 +651,11 @@ func variance(c cluster, measurer VectorMeasurer) float64 {
 	denom := float64(c.numpoints() - c.numcentroids())
 
 	for i := 0; i < c.numpoints(); i++ {
-		p := c.points.GetRowVector(i)
-		mu_i := c.centroid.GetRowVector(0)
+		p := c.Points.GetRowVector(i)
+		mu_i := c.Centroid.GetRowVector(0)
 		dist := measurer.CalcDist(mu_i, p)
-		sum += math.Pow(dist, 2) 
+//		sum += math.Pow(dist, 2) 
+		sum += dist * dist
 	}
 	//fmt.Printf("denom=%f sum=%f\n", denom, sum)
 	v := (1.0 / denom) * sum
@@ -736,10 +737,10 @@ func loglikelih(R int, c []cluster) float64 {
 		// This is the Bob's Your Uncle smoothing factor.  If the variance is 
 		// zero , the fit can't be any better and will drive the log
 		// likelihood to Infinity.
-		if c[i].variance == 0 {
-			c[i].variance = math.Nextafter(0, 1)
+		if c[i].Variance == 0 {
+			c[i].Variance = math.Nextafter(0, 1)
 		} 
-		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].variance)
+		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].Variance)
 		t4 := ((fRn - 1) / 2)
 
 		ll += (t1 - t2 - t3 - t4)

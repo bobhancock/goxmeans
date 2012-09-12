@@ -212,7 +212,7 @@ func TestKmeansp(t *testing.T) {
 
 	variances := make([]float64, 2)
 	for i, clust := range clusters {
-		variances[i] = clust.variance
+		variances[i] = clust.Variance
 	}
 
 	//TODO Test that the cluster members and the variances are correct.
@@ -249,9 +249,9 @@ func TestKmeansp(t *testing.T) {
 	}
 */
 	for i, clust := range clusters {
-		fmt.Printf("%d: points=%v\n",i, clust.points)
-		fmt.Printf("%d: centroid=%v\n", i, clust.centroid)
-		fmt.Printf("%d: variance:%f\n\n", i, clust.variance)
+		fmt.Printf("%d: points=%v\n",i, clust.Points)
+		fmt.Printf("%d: centroid=%v\n", i, clust.Centroid)
+		fmt.Printf("%d: variance:%f\n\n", i, clust.Variance)
 	}
 }
    
@@ -408,7 +408,7 @@ func TestLogLikelih(t *testing.T) {
 
 	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(cd, ed)
-	cd.variance = vard
+	cd.Variance = vard
 
 	cslice := make([]cluster, 1)
 	cslice[0] = cd
@@ -427,12 +427,12 @@ func TestLogLikelih(t *testing.T) {
 	// Model Dn - two clusters
 	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
 	v0 := variance(c0, ed)
-	c0.variance = v0
+	c0.Variance = v0
 
 
 	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
 	v1 := variance(c1, ed)
-	c1.variance = v1
+	c1.Variance = v1
 
 	cslicen := []cluster{c0, c1}
 
@@ -483,7 +483,7 @@ func TestBic(t *testing.T) {
 
 	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(c, ed)
-	c.variance = vard
+	c.Variance = vard
 
 	cslice := []cluster{c}
 
@@ -498,11 +498,11 @@ func TestBic(t *testing.T) {
 
 	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
 	var0 := variance(c0, ed)
-	c0.variance = var0
+	c0.Variance = var0
 
 	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
 	var1 := variance(c1, ed)
-	c1.variance = var1
+	c1.Variance = var1
 
 	cslicen := []cluster{c0, c1}
 
@@ -523,7 +523,7 @@ func TestCalcbic(t *testing.T) {
 	
 	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
 	vard := variance(c, ed)
-	c.variance = vard
+	c.Variance = vard
 	cslice := []cluster{c}
 
 	bic := calcbic(R, M, cslice)
@@ -551,10 +551,10 @@ func TestModels(t *testing.T) {
 		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].Clusters), models[i].Bic)
 		for j := 0; j < len(models[i].Clusters); j++ {
 			fmt.Printf("cluster %d\n", j)
-			fmt.Printf("\tpoints=%v\n", models[i].Clusters[j].points)
-			fmt.Printf("\tcentroid=%v\n", models[i].Clusters[j].centroid)
+			fmt.Printf("\tpoints=%v\n", models[i].Clusters[j].Points)
+			fmt.Printf("\tcentroid=%v\n", models[i].Clusters[j].Centroid)
 			fmt.Printf("\tdim=%v\n", models[i].Clusters[j].dim)
-			fmt.Printf("\tvariance=%v\n", models[i].Clusters[j].variance)
+			fmt.Printf("\tvariance=%v\n", models[i].Clusters[j].Variance)
 		}
 	}
 
@@ -568,8 +568,8 @@ func TestZarc(t *testing.T) {
 	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
 	c0 := cluster{points, centroid, 2, 0}
 //	fmt.Printf("c0.points=%v\n", c0.points)
-	c0.variance = variance(c0, ed)
-	fmt.Printf("variance=%f\n", c0.variance)
+	c0.Variance = variance(c0, ed)
+	fmt.Printf("variance=%f\n", c0.Variance)
 
 	clusters := []cluster{c0}
 	R, _ := points.GetSize()
