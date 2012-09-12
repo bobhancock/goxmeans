@@ -284,13 +284,13 @@ type cluster struct {
 }
 
 // numpoints returns the number of points in a cluster.
-func (c cluster) numpoints() int {
+func (c cluster) Numpoints() int {
 	r, _ := c.Points.GetSize()
 	return r
 }
 
 // numcentroids returns the number of centroids for a cluster.  This should normally be 1.
-func (c cluster) numcentroids() int {
+func (c cluster) Numcentroids() int {
 	r, _ := c.Centroid.GetSize()
 	return r
 }
@@ -600,6 +600,7 @@ func (job bisectJob) bisectCluster() {
 	}
 	
 	childBIC := calcbic(R, M, clusters)
+	fmt.Printf("parentBIC=%f childBIC=%f\n", parentBIC, childBIC)
 	if childBIC > parentBIC {
 		job.results <- bisectResult{childBIC, clusters}
 	} else {
@@ -648,9 +649,9 @@ func variance(c cluster, measurer VectorMeasurer) float64 {
 	}
 
 	sum := float64(0)
-	denom := float64(c.numpoints() - c.numcentroids())
+	denom := float64(c.Numpoints() - c.Numcentroids())
 
-	for i := 0; i < c.numpoints(); i++ {
+	for i := 0; i < c.Numpoints(); i++ {
 		p := c.Points.GetRowVector(i)
 		mu_i := c.Centroid.GetRowVector(0)
 		dist := measurer.CalcDist(mu_i, p)
@@ -731,7 +732,7 @@ func loglikelih(R int, c []cluster) float64 {
 	// TODO calculate R from []cluster
 	
 	for i := 0; i < int(len(c)); i++ {
-		fRn := float64(c[i].numpoints())
+		fRn := float64(c[i].Numpoints())
 		t1 := fRn * math.Log(fRn)
 		t2 :=  fRn * math.Log(float64(R))
 		// This is the Bob's Your Uncle smoothing factor.  If the variance is 
