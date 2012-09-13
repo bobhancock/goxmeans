@@ -23,11 +23,14 @@ import (
 	"strings"
 	"runtime"
 //	"log"
+//	"flag"
+//	"runtime/pprof"
+//	"time"
 	"github.com/bobhancock/gomatrix/matrix"
 )
 
 var numworkers = runtime.NumCPU()
-//var numworkers = 8
+//var numworkers = 2
 
 // minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
@@ -226,10 +229,16 @@ type EuclidDist vectorDistance
 // CalcDist finds the Euclidean distance between points.
 // sqrt( \sigma i = 1 to N (q_i - p_i)^2 )
 func (ed EuclidDist) CalcDist(p, q *matrix.DenseMatrix) float64 {
+	// TODO Insure that p and q have only one row a piece.
 	diff := matrix.Difference(q, p)
-	sqrd := diff.Pow(2) // square each value in the matrix
-	sum := sqrd.SumRows() 
-	s := sum.Get(0, 0)
+	diff.Sqrm() // square each value in the matrix in place
+	// To avoid allocating a new matrix to return the sum is placed in the 
+	// first column of each row.  N.B. this modifies the matrix directly.
+	diff.SumRowsM() 
+	// Each point coordinate consists of 1 row and M cols.  So,
+	// the sum will be at [0, 0]
+	s := diff.Get(0, 0)
+
 	return math.Sqrt(s)
 }
 
@@ -304,6 +313,7 @@ func (c cluster) Numcentroids() int {
 // TODO How many bisections should be tried?
 //
 func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
+	fmt.Printf("numworkers=%d\n", numworkers)
 	runtime.GOMAXPROCS(numworkers)
 
 	R, M := datapoints.GetSize()
@@ -316,6 +326,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc Centroid
 
 		fmt.Printf("k=%d Before kmeansp\n", k)
 		clusters, err := kmeansp(datapoints, k, cc, measurer)
+
 		if err != nil {
 			errs[strconv.Itoa(k)] = err
 		}
@@ -359,7 +370,8 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc Centroid
 	
 // kmeansp partitions datapoints into K clusters.  This results in a partitioning of
 // the data space into Voronoi cells.  The problem is NP-hard so here we attempt
-// to parallelize as many processes as possible to reduce the running time.
+// to parallelize or make concurrent as many processes as possible to reduce the 
+// running time.
 //
 // 1. Place K points into the space represented by the objects that are being clustered.
 // These points represent initial group centroids.
@@ -502,20 +514,27 @@ type PairPointCentroidResult struct {
 // addPairPointCentroidJobs adds a job to the jobs channel.
 func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, 
 	centroids *matrix.DenseMatrix,	measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
+//	start := time.Now()
 	numRows, _ := datapoints.GetSize()
+//	fmt.Printf("addPairPointCentroidJobs: numRows=%d\n", numRows)
     for i := 0; i < numRows; i++ { 
 		point := datapoints.GetRowVector(i)
 		jobs <- PairPointCentroidJob{point, centroids, results, i, measurer}
 	}
 	close(jobs)
+//	end := time.Now()
+//	fmt.Printf("addPairPointCentroidJobs took %v to run for %d rows.\n", end.Sub(start), numRows)
 }
 
 // doPairPointCentroidJobs executes a job from the jobs channel.
 func doPairPointCentroidJobs(done chan<- int, jobs <-chan PairPointCentroidJob) {
+//	start := time.Now()
 	for job := range jobs {
 		job.PairPointCentroid()
 	}
 	done <- 1
+//	end := time.Now()
+//	fmt.Printf("doPairPointCentroidJobs took %v to run.\n", end.Sub(start))
 }
 
 // PairPointCentroid pairs a point with the closest centroids.
@@ -788,7 +807,6 @@ func bic(loglikelih float64, numparams, R int) (float64) {
 
 // calcbic calculates BIC from R, M, and a slice of clusters
 func calcbic(R, M int, clusters []cluster) float64 {
-	// TODO calc R and M from []cluster
 	ll := loglikelih(R, clusters)
 	numparams := freeparams(len(clusters), M)
 	return  bic(ll, numparams, R)
