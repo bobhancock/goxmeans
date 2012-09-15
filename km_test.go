@@ -538,14 +538,13 @@ func TestCalcbic(t *testing.T) {
 	}
 } 
 
-func TestModels(t *testing.T) {
+func TestXmean(t *testing.T) {
 	var ed EuclidDist
 	bisectcc := EllipseCentroids{0.5}
 	var cc DataCentroids
 //	var cc randCentroids
-	klow := 2
-	kup := 3
-	models, errs := Models(DATAPOINTS_D, klow, kup, cc, bisectcc, ed)
+	k := 2
+	models, errs := Xmean(DATAPOINTS_D, k, cc, bisectcc, ed)
 	fmt.Printf("============Test\n")
 	for i := 0; i < len(models); i++ {
 		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].Clusters), models[i].Bic)
