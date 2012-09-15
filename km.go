@@ -325,42 +325,54 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc, bisectcc Centroid
 		bufclusters := make([]cluster, 0)
 
 		fmt.Printf("k=%d Before kmeansp\n", k)
-		clusters, err := kmeansp(datapoints, k, cc, measurer)
+		clustersToBisect, err := kmeansp(datapoints, k, cc, measurer)
 
 		if err != nil {
 			errs[strconv.Itoa(k)] = err
 		}
-		fmt.Printf("k=%d After kmeansp numclusters=%d\n", k, len(clusters))
+		fmt.Printf("k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
 
 /*		for i, clust := range clusters {
 			fmt.Printf("Models: cluster[%d].points=%v\n", i, clust.points)
 		}
 */		
-		// clusters is a []cluster. 
+		// clustersToBisect is a []cluster. 
 		// bisect each clusters and see if you can get a better BIC
 		// You are comparing ModelParent with the one centroid to ModelChild
 		// bisected with two centroids.
 		bufsize := 0.0
-		for _, clust := range clusters {
+		for _, clust := range clustersToBisect {
 			numRows, _ := clust.Points.GetSize()
 			bufsize = math.Max(bufsize, float64(numRows))
 		}
 
-		fmt.Printf("k=%d Before bisection\n", k)
-		bijobs := make(chan bisectJob, numworkers)
-		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
-		bidone := make(chan int, numworkers)
+		for ; len(clustersToBisect) > 0 ; {
+			fmt.Printf("k=%d Before bisection. %d clusters to bisect.\n", k, len(clustersToBisect))
+			bijobs := make(chan bisectJob, numworkers)
+			biresults := make(chan bisectResult, int(math.Max(1024, bufsize)))
+			bidone := make(chan int, numworkers)
 
-		go addBisectJobs(bijobs, clusters, bisectcc, measurer, biresults)
-		for i := 0; i < numworkers; i++ {
-			go doBisectJob(bidone, bijobs)
+			go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
+			for i := 0; i < numworkers; i++ {
+				go doBisectJob(bidone, bijobs)
+			}
+			go awaitBisectJobsCompletion(bidone, biresults)
+			
+			
+			// clear the []cluster
+			clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
+			//bufclusters = append(bufclusters[:0], bufclusters[:0]...)
+			
+			for biresult := range biresults {
+				fmt.Printf("After bisection: final=%t bic=%f len(cluster)=%d\n", biresult.final, biresult.bic, biresult.clusters[0].Numpoints())
+				if biresult.final {
+					bufclusters = append(bufclusters, biresult.clusters...)
+				} else {
+					clustersToBisect = append(clustersToBisect, biresult.clusters...)
+				}
+			}
+			
 		}
-		go awaitBisectJobsCompletion(bidone, biresults)
-
-		for biresult := range biresults {
-			bufclusters = append(bufclusters, biresult.clusters...)
-		}
-		
 		modelbic := calcbic(R, M, bufclusters) 
 		m := Model{k, modelbic, bufclusters}
 		models = append(models, m)
@@ -588,6 +600,7 @@ type bisectJob struct {
 
 type bisectResult struct {
 	bic float64
+	final bool
 	clusters []cluster
 }
 
@@ -619,11 +632,10 @@ func (job bisectJob) bisectCluster() {
 	}
 	
 	childBIC := calcbic(R, M, clusters)
-	fmt.Printf("parentBIC=%f childBIC=%f\n", parentBIC, childBIC)
 	if childBIC > parentBIC {
-		job.results <- bisectResult{childBIC, clusters}
+		job.results <- bisectResult{childBIC, false, clusters}
 	} else {
-		job.results <- bisectResult{parentBIC, parentCluster}
+		job.results <- bisectResult{parentBIC, true, parentCluster}
 	}
 }
 
