@@ -48,7 +48,7 @@ func Atof64(s string) (f float64, err error) {
 	return float64(f64), err
 }
 
-// Load loads a tab delimited text file of floats into a slice.
+// Load loads a tab delimited text file of floats into a matrix.
 func Load(fname string) (*matrix.DenseMatrix, error) {
 	z := matrix.Zeros(1,1)
 
@@ -310,30 +310,28 @@ func (c cluster) Numcentroids() int {
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
 // 
-func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
-	fmt.Printf("numworkers=%d\n", numworkers)
+func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) (Model, map[string]error) {
+	fmt.Printf("Xmean: numworkers=%d\n", numworkers)
 	runtime.GOMAXPROCS(numworkers)
 
 	R, M := datapoints.GetSize()
-	model := make([]Model,0)
 	errs := make(map[string]error)
-
-	fmt.Println("Before top loop")
-	bufclusters := make([]cluster, 0)
 	
-	fmt.Printf("k=%d Before kmeansp\n", k)
+	fmt.Printf("Xmean: k=%d Before kmeansp\n", k)
 	clustersToBisect, err := kmeansp(datapoints, k, cc, measurer)
 	
 	if err != nil {
 		errs[strconv.Itoa(k)] = err
 	}
-	fmt.Printf("k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
-	
-	/*		for i, clust := range clusters {
-	 fmt.Printf("Models: cluster[%d].points=%v\n", i, clust.points)
-	 }
-	 */		
-	// clustersToBisect is a []cluster. 
+
+	fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
+	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
+	return model, errs
+}
+
+// bisect takes a slice of clusters and bisects them until the parent represents
+// the best model.
+func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser, measurer VectorMeasurer) Model {
 	// bisect each clusters and see if you can get a better BIC
 	// You are comparing ModelParent with the one centroid to ModelChild
 	// bisected with two centroids.
@@ -343,8 +341,11 @@ func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, 
 		bufsize = math.Max(bufsize, float64(numRows))
 	}
 	
+	k := 2
+	bufclusters := make([]cluster, 0)
+
 	for ; len(clustersToBisect) > 0 ; {
-		fmt.Printf("k=%d Before bisection. %d clusters to bisect.\n", k, len(clustersToBisect))
+		fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
 		bijobs := make(chan bisectJob, numworkers)
 		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
 		bidone := make(chan int, numworkers)
@@ -355,27 +356,22 @@ func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, 
 		}
 		go awaitBisectJobsCompletion(bidone, biresults)
 		
-		
-		// clear the []cluster
+		// empty the []cluster
 		clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
-		//bufclusters = append(bufclusters[:0], bufclusters[:0]...)
 		
 		for biresult := range biresults {
-//			fmt.Printf("After bisection: final=%t bic=%f len(cluster)=%d\n", biresult.final, biresult.bic, biresult.clusters[0].Numpoints())
 			if biresult.final {
 				bufclusters = append(bufclusters, biresult.clusters...)
 			} else {
 				clustersToBisect = append(clustersToBisect, biresult.clusters...)
 			}
 		}
-		
 	}
 	modelbic := calcbic(R, M, bufclusters) 
-	m := Model{k, modelbic, bufclusters}
-	model = append(model, m)
-
-	return model, errs
+	model := Model{k, modelbic, bufclusters}
+	return model
 }
+
 	
 // kmeansp partitions datapoints into K clusters.  This results in a partitioning of
 // the data space into Voronoi cells.  The problem is NP-hard so here we attempt
@@ -425,7 +421,7 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 */
 
 	centroids := cc.ChooseCentroids(datapoints, k)
-//	fmt.Printf("centroids=%v\n", centroids)
+	fmt.Printf("kemansp: centroids=%v\n", centroids)
 	numRows, M := datapoints.GetSize()
 	CentPointDist := matrix.Zeros(numRows, M)
 

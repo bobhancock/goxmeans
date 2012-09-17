@@ -544,21 +544,19 @@ func TestXmean(t *testing.T) {
 	var cc DataCentroids
 //	var cc randCentroids
 	k := 2
-	models, errs := Xmean(DATAPOINTS_D, k, cc, bisectcc, ed)
+	model, errs := Xmean(DATAPOINTS_D, k, cc, bisectcc, ed)
 	fmt.Printf("============Test\n")
-	for i := 0; i < len(models); i++ {
-		fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n", i, len(models[i].Clusters), models[i].Bic)
-		for j := 0; j < len(models[i].Clusters); j++ {
-			fmt.Printf("cluster %d\n", j)
-			fmt.Printf("\tpoints=%v\n", models[i].Clusters[j].Points)
-			fmt.Printf("\tcentroid=%v\n", models[i].Clusters[j].Centroid)
-			fmt.Printf("\tdim=%v\n", models[i].Clusters[j].dim)
-			fmt.Printf("\tvariance=%v\n", models[i].Clusters[j].Variance)
-		}
+	fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n",len(model.Clusters), model.Bic)
+	for j := 0; j < len(model.Clusters); j++ {
+		fmt.Printf("cluster %d\n", j)
+		fmt.Printf("\tpoints=%v\n", model.Clusters[j].Points)
+		fmt.Printf("\tcentroid=%v\n", model.Clusters[j].Centroid)
+		fmt.Printf("\tdim=%v\n", model.Clusters[j].dim)
+		fmt.Printf("\tvariance=%v\n", model.Clusters[j].Variance)
 	}
 
 	fmt.Printf("\nerrs: %v\n", errs)
-	fmt.Printf("models=%v\n", models)
+	fmt.Printf("models=%v\n", model)
 }
 
 func TestZarc(t *testing.T) {
