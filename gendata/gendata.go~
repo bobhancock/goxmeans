@@ -1,0 +1,30 @@
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"os"
+)
+
+func main() {
+
+	maxrows := 940000
+	
+	fints, err := os.Create("randints")
+	if err != nil {
+		fmt.Println("randints: ", err)
+		return
+	}
+	defer fints.Close()
+
+	for i := 0; i < maxrows; i++ {
+		i0 := rand.Int()
+		i1 := rand.Int()
+		_, err := fints.WriteString(fmt.Sprintf("%d\t%d\n", i0, i1))
+
+		if err != nil {
+			fmt.Println("WriteSrting to fints: ", err)
+			return
+		}
+	}
+}
