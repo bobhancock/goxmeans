@@ -326,10 +326,10 @@ func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, 
 	}
 
 	fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
-//	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
-//	return model, errs
+	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
+	return model, errs
 
-	bufsize := 0.0
+/*	bufsize := 0.0
 	for _, clust := range clustersToBisect {
 		numRows, _ := clust.Points.GetSize()
 		bufsize = math.Max(bufsize, float64(numRows))
@@ -362,7 +362,7 @@ func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, 
 	}
 	modelbic := calcbic(R, M, bufclusters) 
 	model := Model{k, modelbic, bufclusters}
-	return model, nil
+	return model, nil*/
 }
 
 // bisect takes a slice of clusters and bisects them until the parent represents
