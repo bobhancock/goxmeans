@@ -48,8 +48,10 @@ func main() {
 	var measurer goxmeans.EuclidDist
 	var cc goxmeans.DataCentroids
 	//cc := goxmeans.EllipseCentroids{0.5}
-	bisectcc := goxmeans.EllipseCentroids{0.5}
-	model, errs := goxmeans.Xmean(data, k, cc, bisectcc, measurer)
+//	bisectcc := goxmeans.EllipseCentroids{0.5}
+
+//	model, errs := goxmeans.Xmean(data, k, cc, bisectcc, measurer)
+	model, errs := goxmeans.Xmean(data, k, cc, cc, measurer)
 	if len(errs) > 0 {
 		for k, v := range errs {
 			fmt.Printf("%s: %v\n", k, v)
@@ -57,7 +59,6 @@ func main() {
 	}
 	
 	fmt.Println("goxmeans complete")
-
 	fmt.Printf("original num centroids=%d  bic=%f  numclusters=%d\n", model.Numcentroids, model.Bic, len(model.Clusters))
 	for i, clust := range model.Clusters {
 		fmt.Printf("cluster_id=%d numpoints=%d variance=%f  centroid=%v\n", i, clust.Numpoints(), clust.Variance, clust.Centroid)

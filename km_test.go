@@ -544,7 +544,7 @@ func TestXmean(t *testing.T) {
 	var cc DataCentroids
 //	var cc randCentroids
 	k := 2
-	model, errs := Xmean(DATAPOINTS_D, k, cc, bisectcc, ed)
+	modelbz, errs := Xmean(DATAPOINTS_D, k, cc, bisectcc, ed)
 	fmt.Printf("============Test\n")
 	fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n",len(model.Clusters), model.Bic)
 	for j := 0; j < len(model.Clusters); j++ {
