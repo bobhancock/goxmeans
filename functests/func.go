@@ -42,25 +42,25 @@ func main() {
 		fmt.Println("Load: ", err)
 		return
 	}
-	fmt.Println("Load complete")
-	fmt.Println(data.GetSize())
+//	fmt.Println("Load complete")
+//	fmt.Println(data.GetSize())
 
 	var measurer goxmeans.EuclidDist
 	var cc goxmeans.DataCentroids
 	//cc := goxmeans.EllipseCentroids{0.5}
 //	bisectcc := goxmeans.EllipseCentroids{0.5}
 
-//	model, errs := goxmeans.Xmean(data, k, cc, bisectcc, measurer)
-	model, errs := goxmeans.Xmean(data, k, cc, cc, measurer)
+	model, errs := goxmeans.Xmeans(data, k, cc, cc, measurer)
 	if len(errs) > 0 {
 		for k, v := range errs {
 			fmt.Printf("%s: %v\n", k, v)
 		}
 	}
 	
-	fmt.Println("goxmeans complete")
-	fmt.Printf("original num centroids=%d  bic=%f  numclusters=%d\n", model.Numcentroids, model.Bic, len(model.Clusters))
+	fmt.Printf("korig,BIC,numclusters\n")
+	fmt.Printf("%d,%f,%d\n", model.Numcentroids, model.Bic, len(model.Clusters))
+	fmt.Printf("id,numpoints,variance,centroid\n")
 	for i, clust := range model.Clusters {
-		fmt.Printf("cluster_id=%d numpoints=%d variance=%f  centroid=%v\n", i, clust.Numpoints(), clust.Variance, clust.Centroid)
+		fmt.Printf("%d,%d,%f,%v\n", i, clust.Numpoints(), clust.Variance, clust.Centroid)
 	}
 }

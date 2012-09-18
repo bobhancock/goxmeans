@@ -311,21 +311,21 @@ func (c cluster) Numcentroids() int {
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
 // 
-func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) (Model, map[string]error) {
-	fmt.Printf("Xmean: numworkers=%d\n", numworkers)
+func Xmeans(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) (Model, map[string]error) {
+	//fmt.Printf("Xmean: numworkers=%d\n", numworkers)
 	runtime.GOMAXPROCS(numworkers)
 
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
 	
-	fmt.Printf("Xmean: k=%d Before kmeansp\n", k)
+	//fmt.Printf("Xmean: k=%d Before kmeansp\n", k)
 	clustersToBisect, err := kmeansp(datapoints, k, cc, measurer)
 	
 	if err != nil {
 		errs[strconv.Itoa(k)] = err
 	}
 
-	fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
+	//fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
 	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
 	return model, errs
 
@@ -381,7 +381,7 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser, meas
 	bufclusters := make([]cluster, 0)
 
 	for len(clustersToBisect) > 0  {
-		fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
+		//fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
 		bijobs := make(chan bisectJob, numworkers)
 		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
 		bidone := make(chan int, numworkers)
