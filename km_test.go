@@ -1,4 +1,4 @@
- package goxmeans
+package goxmeans
 
 import (
 	"bufio"
@@ -538,13 +538,13 @@ func TestCalcbic(t *testing.T) {
 	}
 } 
 
-func TestXmean(t *testing.T) {
+func TestXmeans(t *testing.T) {
 	var ed EuclidDist
 	bisectcc := EllipseCentroids{0.5}
 	var cc DataCentroids
 //	var cc randCentroids
 	k := 2
-	model, errs := Xmean(DATAPOINTS_D, k, cc, bisectcc, ed)
+	model, errs := Xmeans(DATAPOINTS_D, k, cc, bisectcc, ed)
 	fmt.Printf("============Test\n")
 	fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n",len(model.Clusters), model.Bic)
 	for j := 0; j < len(model.Clusters); j++ {

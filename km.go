@@ -192,6 +192,7 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 // EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset.
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
+	// TODO Cache boundaries call for each matrix so that it is not called on each bisect
 	var xmin, xmax, ymin, ymax = boundaries(mat) 
 
 	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
@@ -310,23 +311,58 @@ func (c cluster) Numcentroids() int {
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
 // 
-func Xmean(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) (Model, map[string]error) {
-	fmt.Printf("Xmean: numworkers=%d\n", numworkers)
+func Xmeans(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser, measurer VectorMeasurer) (Model, map[string]error) {
+	//fmt.Printf("Xmean: numworkers=%d\n", numworkers)
 	runtime.GOMAXPROCS(numworkers)
 
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
 	
-	fmt.Printf("Xmean: k=%d Before kmeansp\n", k)
+	//fmt.Printf("Xmean: k=%d Before kmeansp\n", k)
 	clustersToBisect, err := kmeansp(datapoints, k, cc, measurer)
 	
 	if err != nil {
 		errs[strconv.Itoa(k)] = err
 	}
 
-	fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
+	//fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
 	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
 	return model, errs
+
+/*	bufsize := 0.0
+	for _, clust := range clustersToBisect {
+		numRows, _ := clust.Points.GetSize()
+		bufsize = math.Max(bufsize, float64(numRows))
+	}
+	
+	bufclusters := make([]cluster, 0)
+
+	for len(clustersToBisect) > 0  {
+		fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
+		bijobs := make(chan bisectJob, numworkers)
+		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
+		bidone := make(chan int, numworkers)
+		
+		go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
+		for i := 0; i < numworkers; i++ {
+			go doBisectJob(bidone, bijobs)
+		}
+		go awaitBisectJobsCompletion(bidone, biresults)
+		
+		// empty the []cluster
+		clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
+		
+		for biresult := range biresults {
+			if biresult.final {
+				bufclusters = append(bufclusters, biresult.clusters...)
+			} else {
+				clustersToBisect = append(clustersToBisect, biresult.clusters...)
+			}
+		}
+	}
+	modelbic := calcbic(R, M, bufclusters) 
+	model := Model{k, modelbic, bufclusters}
+	return model, nil*/
 }
 
 // bisect takes a slice of clusters and bisects them until the parent represents
@@ -344,8 +380,8 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser, meas
 	k := 2
 	bufclusters := make([]cluster, 0)
 
-	for ; len(clustersToBisect) > 0 ; {
-		fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
+	for len(clustersToBisect) > 0  {
+		//fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
 		bijobs := make(chan bisectJob, numworkers)
 		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
 		bidone := make(chan int, numworkers)
@@ -421,7 +457,7 @@ func kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 */
 
 	centroids := cc.ChooseCentroids(datapoints, k)
-	fmt.Printf("kemansp: centroids=%v\n", centroids)
+//	fmt.Printf("kemansp: centroids=%v\n", centroids)
 	numRows, M := datapoints.GetSize()
 	CentPointDist := matrix.Zeros(numRows, M)
 
@@ -597,7 +633,8 @@ type bisectResult struct {
 	clusters []cluster
 }
 
-func addBisectJobs(jobs chan<- bisectJob, clusters []cluster, cc CentroidChooser, measurer VectorMeasurer,  results chan<- bisectResult) {
+func addBisectJobs(jobs chan<- bisectJob, clusters []cluster, cc CentroidChooser,
+	measurer VectorMeasurer,  results chan<- bisectResult) {
 	for _, clust := range clusters {
 		jobs <- bisectJob{clust, cc, measurer, results}
 	}
@@ -617,14 +654,13 @@ func (job bisectJob) bisectCluster() {
 	parentCluster := make([]cluster,0)
 	parentCluster = append(parentCluster, job.clust)
 
-	parentBIC := calcbic(R, M, parentCluster)
-
 	clusters, err := kmeansp(job.clust.Points, 2, job.cc, job.measurer)
 	if err != nil {
-	//TODO	do something
+		//TODO	do something
 		fmt.Println("Bisect ERROR")
 	}
 	
+	parentBIC := calcbic(R, M, parentCluster)
 	childBIC := calcbic(R, M, clusters)
 	if childBIC > parentBIC {
 		job.results <- bisectResult{childBIC, false, clusters}
