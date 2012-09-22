@@ -199,8 +199,9 @@ func TestKmeansp(t *testing.T) {
 //	cc := EllipseCentroids{0.1}
 
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
-	fmt.Printf("datapoints=%v\n", datapoints)
-	clusters, err := kmeansp(datapoints, 2, cc, ed)
+//	fmt.Printf("datapoints=%v\n", datapoints)
+	centroids := cc.ChooseCentroids(datapoints,2)
+	clusters, err := kmeansp(datapoints, centroids, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
@@ -544,7 +545,8 @@ func TestXmeans(t *testing.T) {
 	var cc DataCentroids
 //	var cc randCentroids
 	k := 2
-	model, errs := Xmeans(DATAPOINTS_D, k, cc, bisectcc, ed)
+	centroids := cc.ChooseCentroids(DATAPOINTS_D, k)
+	model, errs := Xmeans(DATAPOINTS_D, centroids, cc, bisectcc, ed)
 	fmt.Printf("============Test\n")
 	fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n",len(model.Clusters), model.Bic)
 	for j := 0; j < len(model.Clusters); j++ {
