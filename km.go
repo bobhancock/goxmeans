@@ -318,51 +318,21 @@ func Xmeans(datapoints *matrix.DenseMatrix, k int, cc, bisectcc CentroidChooser,
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
 	
-	//fmt.Printf("Xmean: k=%d Before kmeansp\n", k)
 	clustersToBisect, err := kmeansp(datapoints, k, cc, measurer)
-	
 	if err != nil {
 		errs[strconv.Itoa(k)] = err
 	}
 
-	//fmt.Printf("Xmean: k=%d After kmeansp numclusters=%d\n", k, len(clustersToBisect))
 	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
-	return model, errs
-
-/*	bufsize := 0.0
-	for _, clust := range clustersToBisect {
-		numRows, _ := clust.Points.GetSize()
-		bufsize = math.Max(bufsize, float64(numRows))
+//	return model, errs
+	K := len(model.Clusters)
+	clusters, err := kmeansp(datapoints, K, cc, measurer)
+	if err != nil {
+		errs[strconv.Itoa(k)] = err
 	}
-	
-	bufclusters := make([]cluster, 0)
-
-	for len(clustersToBisect) > 0  {
-		fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
-		bijobs := make(chan bisectJob, numworkers)
-		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
-		bidone := make(chan int, numworkers)
-		
-		go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
-		for i := 0; i < numworkers; i++ {
-			go doBisectJob(bidone, bijobs)
-		}
-		go awaitBisectJobsCompletion(bidone, biresults)
-		
-		// empty the []cluster
-		clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
-		
-		for biresult := range biresults {
-			if biresult.final {
-				bufclusters = append(bufclusters, biresult.clusters...)
-			} else {
-				clustersToBisect = append(clustersToBisect, biresult.clusters...)
-			}
-		}
-	}
-	modelbic := calcbic(R, M, bufclusters) 
-	model := Model{k, modelbic, bufclusters}
-	return model, nil*/
+	bic := calcbic(R, M, clusters)
+	Model := Model{len(clusters), bic, clusters}
+	return Model, errs
 }
 
 // bisect takes a slice of clusters and bisects them until the parent represents
