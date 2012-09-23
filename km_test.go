@@ -201,18 +201,18 @@ func TestKmeansp(t *testing.T) {
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
 //	fmt.Printf("datapoints=%v\n", datapoints)
 	centroids := cc.ChooseCentroids(datapoints,2)
-	clusters, err := kmeansp(datapoints, centroids, ed)
+	model, err := kmeansp(datapoints, centroids, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
 	}
 
-	if len(clusters) != 2 {
-		t.Errorf("TestKemansp: expected 2 clusters and received %d.", len(clusters))
+	if len(model.Clusters) != 2 {
+		t.Errorf("TestKemansp: expected 2 clusters and received %d.", len(model.Clusters))
 	}
 
 	variances := make([]float64, 2)
-	for i, clust := range clusters {
+	for i, clust := range model.Clusters {
 		variances[i] = clust.Variance
 	}
 
@@ -249,7 +249,7 @@ func TestKmeansp(t *testing.T) {
 		t.Error("TestKmeansp: second centroid y coordinate is %f instead of %f.", x, expect)
 	}
 */
-	for i, clust := range clusters {
+	for i, clust := range model.Clusters {
 		fmt.Printf("%d: points=%v\n",i, clust.Points)
 		fmt.Printf("%d: centroid=%v\n", i, clust.Centroid)
 		fmt.Printf("%d: variance:%f\n\n", i, clust.Variance)
@@ -539,7 +539,7 @@ func TestCalcbic(t *testing.T) {
 	}
 } 
 
-func TestXmeans(t *testing.T) {
+/*func TestXmeans(t *testing.T) {
 	var ed EuclidDist
 	bisectcc := EllipseCentroids{0.5}
 	var cc DataCentroids
@@ -548,7 +548,7 @@ func TestXmeans(t *testing.T) {
 	kmax := k*2
 	centroids := cc.ChooseCentroids(DATAPOINTS_D, k)
 	model, errs := Xmeans(DATAPOINTS_D, centroids, kmax,  cc, bisectcc, ed)
-	fmt.Printf("============Test\n")
+	//fmt.Printf("============Test\n")
 	fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n",len(model.Clusters), model.Bic)
 	for j := 0; j < len(model.Clusters); j++ {
 		fmt.Printf("cluster %d\n", j)
@@ -560,7 +560,8 @@ func TestXmeans(t *testing.T) {
 
 	fmt.Printf("\nerrs: %v\n", errs)
 	fmt.Printf("models=%v\n", model)
-}
+
+}*/
 
 func TestZarc(t *testing.T) {
 	var ed  EuclidDist
