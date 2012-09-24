@@ -340,13 +340,13 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 		// Bisect the returned clusters
 		log.Println("bisect started")
 		bimodel := bisect(model.Clusters, R, M, bisectcc, measurer)
-		numBicents := len(bimodel.Clusters)
-		log.Printf("bisect returned %d clusters\n", numBicents)
+		numCentroids := len(bimodel.Clusters)
+		log.Printf("bisect returned %d clusters\n", numCentroids)
 		models = append(models, model)
 
 		var cent *matrix.DenseMatrix
 				
-		if numBicents <= kmax {
+		if numCentroids <= kmax {
 			for  rowexists := true; rowexists == true; {
 				cent = cc.ChooseCentroids(datapoints, 1)
 				rowexists = centroids.RowExists(cent)
@@ -360,7 +360,7 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 			} 
 			k++
 		} else {
-			k = numBicents
+			k = numCentroids
 		}
 	}
 		
