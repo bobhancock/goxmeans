@@ -8,6 +8,16 @@
  R = |D| the number of points in a model.
 
  M = number of dimensions assuming spherical Gaussians.
+
+
+The algorithm consists of two operations repeated until completion.
+
+1. Improve parameters
+
+2. Improve structure
+
+ 3. If K > Kmax then stop and return a slice of Models with BIC scores, else
+    Goto 1.
 */
 package goxmeans
 
@@ -233,7 +243,7 @@ func (ed EuclidDist) CalcDist(p, q *matrix.DenseMatrix) float64 {
 	// TODO Insure that p and q have only one row a piece.
 	diff := matrix.Difference(q, p)
 	diff.Sqrm() // square each value in the matrix in place
-	// To avoid allocating a new matrix to return the sum is placed in the 
+	// To avoid allocating a new matrix the sum is placed in the 
 	// first column of each row.  N.B. this modifies the matrix directly.
 	diff.SumRowsM() 
 	// Each point coordinate consists of 1 row and M cols.  So,
@@ -248,7 +258,6 @@ type ManhattanDist struct {}
 // CalcDist finds the ManhattanDistance which is the sum of the aboslute 
 // difference of the coordinates.   Also known as rectilinear distance, 
 // city block distance, or taxicab distance.
-
 func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) float64 {
 	return math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
 }
@@ -280,9 +289,16 @@ func boundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
 
 // Model is a statistical model with a BIC score and a collection of clusters.
 type Model struct {
-	Numcentroids int
 	Bic float64
 	Clusters []cluster
+}
+
+func (m Model) Numcentroids() int {
+	c := 0
+	for _, clust := range m.Clusters {
+		c += clust.Numcentroids()
+	}
+	return c
 }
 
 // cluster models an individual cluster.
@@ -306,47 +322,59 @@ func (c cluster) Numcentroids() int {
 }
 
 var centroids *matrix.DenseMatrix
-// Models runs k-means for k lower bound to k upper bound on a data set.
+// Xmeans runs k-means for k lower bound to k upper bound on a data set.
 // Once the k centroids have converged each cluster is bisected and the BIC
 // of the orginal cluster (parent = a model with one centroid) to the 
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
 // 
-func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) (Model, map[string]error) {
+func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
 	fp, _ := os.Create("/var/tmp/xmeans.log")
-	w := io.Writer(fp)
-	log.SetOutput(w)
-	//lg := log.New(w, fmt.Sprintf("%s|%s|", log.Ldate, log.Ltime), 0)
+	log.SetOutput(io.Writer(fp))
 	log.Println("Start")
 
 	k, _ := centroids.GetSize()
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
 	runtime.GOMAXPROCS(numworkers)
+	models := make([]Model, 0)
 
-	// Cluster using the supplied centroids.
-	clustersToBisect, err := kmeansp(datapoints, centroids, measurer)
-	if err != nil {
-		errs[strconv.Itoa(k)] = err
+	log.Printf("k=%d kmax=%d\n", k, kmax)
+	for  k <= kmax {
+		log.Printf("kmeans started k=%d\n", k)
+		model, err := kmeans(datapoints, centroids, measurer)
+		if err != nil {
+			errs[strconv.Itoa(k)] = err
+		}
+		
+		// Bisect the returned clusters
+		log.Println("Bisection started.")
+		// TODO we need to pass a model so we can retain the original centroids
+		bimodel := bisect(model.Clusters, R, M, bisectcc, measurer)
+		
+		numBicents := len(bimodel.Clusters)
+		models = append(models, model)
+
+		var cent *matrix.DenseMatrix
+				
+		if numBicents <= kmax {
+			for  rowexists := true; rowexists == true; {
+				cent = cc.ChooseCentroids(datapoints, 1)
+				rowexists = centroids.RowExists(cent)
+			}
+		
+			centroids, err  = centroids.AppendRow(cent)
+			if err != nil {
+				log.Printf("AppendRow: %v\n", err)
+				errs["ApppendRow"] = err
+				break
+			} 
+			k++
+		}
 	}
-
-	// Bisect the returned clusters.
-	log.Println("Bisect started")
-	model := bisect(clustersToBisect, R, M, bisectcc, measurer)
-	K := len(model.Clusters)
-	cents := cc.ChooseCentroids(datapoints, K)
-
-	// 
-	log.Println("Final kmeans started")
-	clusters, err := kmeansp(datapoints, cents,  measurer)
-	if err != nil {
-		errs[strconv.Itoa(k)] = err
-	}
-	bic := calcbic(R, M, clusters)
-	Model := Model{len(clusters), bic, clusters}
-	
+		
 	log.Println("Finished")
-	return Model, errs
+	return models, errs
 }
 
 // bisect takes a slice of clusters and bisects them until the parent represents
@@ -361,38 +389,32 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  mea
 		bufsize = math.Max(bufsize, float64(numRows))
 	}
 	
-	k := 2
 	bufclusters := make([]cluster, 0)
 
-	for len(clustersToBisect) > 0  {
-		//fmt.Printf("k=%d bisection loop. %d clusters to bisect.\n", k, len(clustersToBisect))
-		bijobs := make(chan bisectJob, numworkers)
-		biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
-		bidone := make(chan int, numworkers)
+	//for len(clustersToBisect) > 0  {
+	bijobs := make(chan bisectJob, numworkers)
+	biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
+	bidone := make(chan int, numworkers)
 		
-		go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
-		for i := 0; i < numworkers; i++ {
-			go doBisectJob(bidone, bijobs)
-		}
-		go awaitBisectJobsCompletion(bidone, biresults)
-		
-		// empty the []cluster
-		clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
-		
-		for biresult := range biresults {
-			if biresult.final {
-				bufclusters = append(bufclusters, biresult.clusters...)
-			} else {
-				clustersToBisect = append(clustersToBisect, biresult.clusters...)
-			}
-		}
+	go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
+	for i := 0; i < numworkers; i++ {
+		go doBisectJob(bidone, bijobs)
 	}
+	go awaitBisectJobsCompletion(bidone, biresults)
+	
+	// empty the []cluster
+	//		clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
+	
+	for biresult := range biresults {
+		bufclusters = append(bufclusters, biresult.clusters...)
+	}
+	
 	modelbic := calcbic(R, M, bufclusters) 
-	model := Model{k, modelbic, bufclusters}
+	model := Model{modelbic, bufclusters}
 	return model
 }
 
-// kmeansp partitions datapoints into K clusters.  This results in a partitioning of
+// kmeans partitions datapoints into K clusters.  This results in a partitioning of
 // the data space into Voronoi cells.  The problem is NP-hard so here we attempt
 // to parallelize or make concurrent as many processes as possible to reduce the 
 // running time.
@@ -426,7 +448,7 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  mea
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
 //
-func kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) ([]cluster, error) {
+func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) (Model, error) {
 /*  datapoints				  CentPoinDist            centroids				  
                                  ________________
    ____	  ____				  __|__	  ______	 |	  ____	___________	  
@@ -434,10 +456,8 @@ func kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer)
    | 3.0  5.1| <-- row i --> |	3	  32.12 |  row 3 | 3	 38.1, ... |		  
    |____  ___|				 |____	  ______|	     |___	__________ |			  
 */
-//	centroids := cc.ChooseCentroids(datapoints, k)
-//	fmt.Printf("kemansp: centroids=%v\n", centroids)
-	numRows, M := datapoints.GetSize()
-	CentPointDist := matrix.Zeros(numRows, M)
+	R, M := datapoints.GetSize()
+	CentPointDist := matrix.Zeros(R,2)
 	k, _ := centroids.GetSize()
 
 	clusterChanged := true
@@ -448,7 +468,7 @@ func kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer)
 		clusters = make([]cluster, 0)
 
 		jobs := make(chan PairPointCentroidJob, numworkers)
-		results := make(chan PairPointCentroidResult, minimum(1024, numRows))
+		results := make(chan PairPointCentroidResult, minimum(1024, R))
 		done := make(chan int, numworkers)
 
 		// Pair each point with its closest centroid.
@@ -462,7 +482,7 @@ func kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer)
 
 		clusterChanged = assessClusters(CentPointDist, results) // This blocks so that all the results can be processed
 
-		// Now that you have each data point grouped with a centroid,
+		// You have each data point grouped with a centroid,
 		for idx, cent := 0, 0; cent < k; cent++ {
 			// Select all the rows in CentPointDist whose first col value == cent.
 			// Get the corresponding row vector from datapoints and place it in pointsInCluster.
@@ -503,7 +523,9 @@ func kmeansp(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer)
 			idx++
 		}
 	}
-	return clusters, nil
+	modelbic := calcbic(R, M, clusters) 
+	model := Model{modelbic, clusters}
+	return model, nil
 }
  
 // CentroidPoint stores the row number in the centroids matrix and
@@ -534,27 +556,20 @@ type PairPointCentroidResult struct {
 // addPairPointCentroidJobs adds a job to the jobs channel.
 func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, 
 	centroids *matrix.DenseMatrix,	measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
-//	start := time.Now()
 	numRows, _ := datapoints.GetSize()
-//	fmt.Printf("addPairPointCentroidJobs: numRows=%d\n", numRows)
     for i := 0; i < numRows; i++ { 
 		point := datapoints.GetRowVector(i)
 		jobs <- PairPointCentroidJob{point, centroids, results, i, measurer}
 	}
 	close(jobs)
-//	end := time.Now()
-//	fmt.Printf("addPairPointCentroidJobs took %v to run for %d rows.\n", end.Sub(start), numRows)
 }
 
 // doPairPointCentroidJobs executes a job from the jobs channel.
 func doPairPointCentroidJobs(done chan<- int, jobs <-chan PairPointCentroidJob) {
-//	start := time.Now()
 	for job := range jobs {
 		job.PairPointCentroid()
 	}
 	done <- 1
-//	end := time.Now()
-//	fmt.Printf("doPairPointCentroidJobs took %v to run.\n", end.Sub(start))
 }
 
 // PairPointCentroid pairs a point with the closest centroids.
@@ -607,8 +622,8 @@ type bisectJob struct {
 }
 
 type bisectResult struct {
+	centroids *matrix.DenseMatrix
 	bic float64
-	final bool
 	clusters []cluster
 }
 
@@ -618,7 +633,6 @@ func addBisectJobs(jobs chan<- bisectJob, clusters []cluster, cc CentroidChooser
 		jobs <- bisectJob{clust, cc, measurer, results}
 	}
 	close(jobs)
-//	fmt.Printf("bisect jobs channel closed.\n")
 }
 
 func doBisectJob(done chan<- int, jobs <-chan bisectJob) {
@@ -634,18 +648,18 @@ func (job bisectJob) bisectCluster() {
 	parentCluster = append(parentCluster, job.clust)
 
 	centroids := job.bcc.ChooseCentroids(job.clust.Points, 2)
-	clusters, err := kmeansp(job.clust.Points, centroids, job.measurer)
+	model, err := kmeans(job.clust.Points, centroids, job.measurer)
 	if err != nil {
-		//TODO	do something
-		fmt.Println("Bisect ERROR")
+		//TODO	do something better
+		fmt.Println("Bisect ERROR", err)
 	}
 	
 	parentBIC := calcbic(R, M, parentCluster)
-	childBIC := calcbic(R, M, clusters)
+	childBIC := calcbic(R, M, model.Clusters)
 	if childBIC > parentBIC {
-		job.results <- bisectResult{childBIC, false, clusters}
+		job.results <- bisectResult{centroids, childBIC, model.Clusters}
 	} else {
-		job.results <- bisectResult{parentBIC, true, parentCluster}
+		job.results <- bisectResult{centroids, parentBIC, parentCluster}
 	}
 }
 
@@ -665,7 +679,7 @@ func awaitBisectJobsCompletion(done <- chan int, results chan bisectResult) {
 // a centroid.  Column 1 contains (datapoint_i - mu(i))^2 
 // 
 // centroids =  K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
-// Columns 1...M contain the centroid coordinates.  (See Kmeansp() for an example.)
+// Columns 1...M contain the centroid coordinates.  (See kmeans() for an example.)
 //
 //    1        __                 2
 // ------  *  \     (x   -  mu   ) 
@@ -696,10 +710,8 @@ func variance(c cluster, measurer VectorMeasurer) float64 {
 		p := c.Points.GetRowVector(i)
 		mu_i := c.Centroid.GetRowVector(0)
 		dist := measurer.CalcDist(mu_i, p)
-//		sum += math.Pow(dist, 2) 
 		sum += dist * dist
 	}
-	//fmt.Printf("denom=%f sum=%f\n", denom, sum)
 	v := (1.0 / denom) * sum
 	return v
 }

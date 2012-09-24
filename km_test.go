@@ -56,7 +56,6 @@ func makeCentPointDist(datapoints, centroids *matrix.DenseMatrix) *matrix.DenseM
 	
 	if clusterChanged == true || clusterChanged == false {
 	}
-	//fmt.Printf("clusterchanged=%v\n", clusterChanged)
 	return CentPointDist
 }
 
@@ -186,73 +185,44 @@ func TestComputeCentroid(t *testing.T) {
 }
 
 
-func TestKmeansp(t *testing.T) {
-//	dataPoints, err := Load("./testSetSmall.txt")
+func TestKmeans(t *testing.T) {
+//	datapoints, err := Load("./testSetSmall.txt")
 //	if err != nil {
 //		t.Errorf("Load returned: %v", err)
 //		return
 //	}
-	
-	var ed EuclidDist
-//	var cc randCentroids
 	var cc DataCentroids
-//	cc := EllipseCentroids{0.1}
-
+	var ed EuclidDist
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
-//	fmt.Printf("datapoints=%v\n", datapoints)
 	centroids := cc.ChooseCentroids(datapoints,2)
-	clusters, err := kmeansp(datapoints, centroids, ed)
+
+	model, err := kmeans(datapoints, centroids, ed)
 	if err != nil {
 		t.Errorf("Kmeans returned: %v", err)
 		return
 	}
 
-	if len(clusters) != 2 {
-		t.Errorf("TestKemansp: expected 2 clusters and received %d.", len(clusters))
+	if len(model.Clusters) != 2 {
+		t.Errorf("TestKemansp: expected 2 clusters and received %d.", len(model.Clusters))
 	}
 
 	variances := make([]float64, 2)
-	for i, clust := range clusters {
+	for i, clust := range model.Clusters {
 		variances[i] = clust.Variance
 	}
 
-	//TODO Test that the cluster members and the variances are correct.
-	//N.B. The order of returned clusters is not deterministic.
-/*	E := 1.8
-	v := clusters[0].variance 
-	epsilon := .000001
-	na := math.Nextafter(E, E + 1) 
-	diff := math.Abs(v - na) 
-
-	
-	if diff > epsilon {
-		t.Errorf("TestKmeansp: expected variance of %f but received %f.  The difference %f exceeds epsilon %f", E, v, diff, epsilon)
-	}
-*/
-/*
-	y := clusters[0].centroid.Get(0,1)
-	expect = 3.4
-	if y != expect {
-		t.Error("TestKmeansp: first centroid y coordinate is %f instead of %f.", x, expect)
+	// Insure that all points are referenced.
+	pref := 0
+	for _, clust := range model.Clusters {
+		pref += clust.Numpoints()
 	}
 
-	
-	x = clusters[1].centroid.Get(0,0)
-	expect = 9.0
-	if x != expect {
-		t.Error("TestKmeansp: second centroid x coordinate is %f instead of %f.", x, expect)
-	}
-
-	y = clusters[1].centroid.Get(0,1)
-	expect = 7.0
-	if y != expect {
-		t.Error("TestKmeansp: second centroid y coordinate is %f instead of %f.", x, expect)
-	}
-*/
-	for i, clust := range clusters {
-		fmt.Printf("%d: points=%v\n",i, clust.Points)
-		fmt.Printf("%d: centroid=%v\n", i, clust.Centroid)
-		fmt.Printf("%d: variance:%f\n\n", i, clust.Variance)
+	cpoints, _ := datapoints.GetSize()
+	if pref != cpoints {
+		t.Errorf("Points referenced in clusters=%d, should be %d\n", pref, cpoints)
+		//fmt.Printf("%d: points=%v\n",i, clust.Points)
+		//fmt.Printf("%d: centroid=%v\n", i, clust.Centroid)
+		//fmt.Printf("%d: variance:%f\n\n", i, clust.Variance)
 	}
 }
    
@@ -271,7 +241,6 @@ func TestAddPairPointToCentroidJob(t *testing.T) {
 	i := 0
 	for ; i < r; i++ {
         <-jobs 
-		//fmt.Printf("Drained %d\n", i)
     }
 
 	if i  != r {
@@ -491,7 +460,6 @@ func TestBic(t *testing.T) {
 	lld := loglikelih(R, cslice)
 
 	bic1 := bic(lld, numparams, R)
-//	fmt.Printf("bic1=%f\n", bic1)
 	
 	// Model 2
 	K = 1
@@ -508,10 +476,8 @@ func TestBic(t *testing.T) {
 	cslicen := []cluster{c0, c1}
 
 	loglikehn := loglikelih(R, cslicen)
-//	fmt.Printf("loglikelihood2 = %f\n", loglikeh2)
 
 	bic2 := bic(loglikehn, numparamsn, R)
-//	fmt.Printf("bic2=%f\n", bic2)
 
 	if bic1 >= bic2 {
 		t.Errorf("TestBicComp: bic2 should be greater than bic1, but received bic1=%f and bic2=%f", bic1, bic2)
@@ -543,26 +509,34 @@ func TestXmeans(t *testing.T) {
 	var ed EuclidDist
 	bisectcc := EllipseCentroids{0.5}
 	var cc DataCentroids
-//	var cc randCentroids
 	k := 2
 	kmax := k*2
 	centroids := cc.ChooseCentroids(DATAPOINTS_D, k)
-	model, errs := Xmeans(DATAPOINTS_D, centroids, kmax,  cc, bisectcc, ed)
-	fmt.Printf("============Test\n")
-	fmt.Printf("\nModel i=%d numclusters=%d bic=%f\n",len(model.Clusters), model.Bic)
-	for j := 0; j < len(model.Clusters); j++ {
-		fmt.Printf("cluster %d\n", j)
-		fmt.Printf("\tpoints=%v\n", model.Clusters[j].Points)
-		fmt.Printf("\tcentroid=%v\n", model.Clusters[j].Centroid)
-		fmt.Printf("\tdim=%v\n", model.Clusters[j].dim)
-		fmt.Printf("\tvariance=%v\n", model.Clusters[j].Variance)
+	cpts,_ := DATAPOINTS_D.GetSize()
+
+	models, errs := Xmeans(DATAPOINTS_D, centroids, kmax,  cc, bisectcc, ed)
+	if len(errs) > 0 {
+		t.Errorf("TestXmeans: errs=%v", errs)
 	}
+	
+	for i, m := range models {
+		if m.Bic == 0 {
+			t.Errorf("%d: model BIC is 0.")
+		}
 
-	fmt.Printf("\nerrs: %v\n", errs)
-	fmt.Printf("models=%v\n", model)
+		clustpts := 0
+		for _, clust := range m.Clusters {
+			clustpts += clust.Numpoints()
+		}
+	
+		if cpts != clustpts {
+			t.Errorf("TestXmeans: model %d with %d centroids contains %d points.  Should contain %d points", i, m.Numcentroids(),
+				clustpts, cpts)
+		}
+	}
 }
-
-func TestZarc(t *testing.T) {
+/*func TestZarc(t *testing.T) {
+    // ad hoc testing func
 	var ed  EuclidDist
 	points := DATAPOINTS_D
 	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
@@ -578,11 +552,11 @@ func TestZarc(t *testing.T) {
 
 //	bic := calcbic(R, 2, clusters)
 //	fmt.Printf("bic=%f\n", bic)
-}
+}*/
 
-func TestZarcEllipse(t *testing.T) {
+/*func TestZarcEllipse(t *testing.T) {
 	ec := EllipseCentroids{0.1}
 	centroids := ec.ChooseCentroids(DATAPOINTS_D, 2)
 	fmt.Printf("centroids=%v\n", centroids)
 	fmt.Printf("row1=%v\n", centroids.GetRowVector(1))
-}
+}*/
