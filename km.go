@@ -52,14 +52,8 @@ func minimum(x int, ys ...int) int {
     return x
 }
 
-// Atof64 is shorthand for ParseFloat(s, 64)
-func Atof64(s string) (f float64, err error) {
-	f64, err := strconv.ParseFloat(s, 64)
-	return float64(f64), err
-}
-
 // Load loads a tab delimited text file of floats into a matrix.
-func Load(fname string) (*matrix.DenseMatrix, error) {
+func Load(fname, sep string) (*matrix.DenseMatrix, error) {
 	z := matrix.Zeros(1,1)
 
 	fp, err := os.Open(fname)
@@ -90,7 +84,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		}
 
 		l1 := strings.TrimRight(line, "\n")
-		l := strings.Split(l1, "\t")
+		l := strings.Split(l1, sep)
 		// If each line does not have the same number of columns then error
 		if linenum == 0 {
 			cols = len(l)
@@ -107,19 +101,15 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		linenum++
 
 		// Convert the strings to  float64 and build up the slice t by appending.
-		t := make([]float64, 1)
+		t := make([]float64, 0)
 
-		for i, v := range l {
-			f, err := Atof64(string(v))
+		for _, v := range l {
+			v = strings.TrimSpace(v)
+			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
-				return z, errors.New(fmt.Sprintf("goxmeanx.Load: cannot convert value %s to float64.", v))
+				return z, errors.New(fmt.Sprintf("goxmeans.Load: cannot convert value %s to float64.", v))
 			}
-			if i == 0 {
-				t[0] = f
-			} else {
-				t = append(t, f)
-			}
-			
+			t = append(t, f)
 		}
 		data = append(data, t...)
 	}
@@ -329,17 +319,27 @@ var centroids *matrix.DenseMatrix
 // is committed to the set of clusters for this larger model k.
 // 
 func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
-	fp, _ := os.Create("/var/tmp/xmeans.log")
-	log.SetOutput(io.Writer(fp))
-	log.Println("Start")
+	logname := "/var/tmp/xmeans.log"
+	fp, err :=  os.OpenFile(logname, os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fp, err = os.Create(logname)
+    		if err != nil {
+	    		fmt.Printf("Xmeans: cannot open %s for logging.\n", logname)
+			}
+		} 
+	}
 
+	log.SetOutput(io.Writer(fp))
+	
 	k, _ := centroids.GetSize()
+	log.Printf("Start k=%d kmax=%d\n", k, kmax)
+	
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
 	runtime.GOMAXPROCS(numworkers)
 	models := make([]Model, 0)
 
-	log.Printf("k=%d kmax=%d\n", k, kmax)
 	for  k <= kmax {
 		log.Printf("kmeans started k=%d\n", k)
 		model, err := kmeans(datapoints, centroids, measurer)
@@ -348,16 +348,15 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 		}
 		
 		// Bisect the returned clusters
-		log.Println("Bisection started.")
-		// TODO we need to pass a model so we can retain the original centroids
+		log.Println("bisect started")
 		bimodel := bisect(model.Clusters, R, M, bisectcc, measurer)
-		
-		numBicents := len(bimodel.Clusters)
+		numCentroids := len(bimodel.Clusters)
+		log.Printf("bisect returned %d clusters\n", numCentroids)
 		models = append(models, model)
 
 		var cent *matrix.DenseMatrix
 				
-		if numBicents <= kmax {
+		if numCentroids <= kmax {
 			for  rowexists := true; rowexists == true; {
 				cent = cc.ChooseCentroids(datapoints, 1)
 				rowexists = centroids.RowExists(cent)
@@ -370,6 +369,8 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 				break
 			} 
 			k++
+		} else {
+			k = numCentroids
 		}
 	}
 		
