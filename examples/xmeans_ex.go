@@ -33,7 +33,7 @@ func main() {
 		return
 	}
 
-   flag.Parse()
+	flag.Parse()
     if *cpuprofile != "" {
         f, err := os.Create(*cpuprofile)
         if err != nil {

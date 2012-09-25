@@ -319,11 +319,22 @@ var centroids *matrix.DenseMatrix
 // is committed to the set of clusters for this larger model k.
 // 
 func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
-	fp, _ := os.Create("/var/tmp/xmeans.log")
+	logname := "/var/tmp/xmeans.log"
+	fp, err :=  os.OpenFile(logname, os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fp, err = os.Create(logname)
+    		if err != nil {
+	    		fmt.Printf("Xmeans: cannot open %s for logging.\n", logname)
+			}
+		} 
+	}
+
 	log.SetOutput(io.Writer(fp))
 	
 	k, _ := centroids.GetSize()
 	log.Printf("Start k=%d kmax=%d\n", k, kmax)
+	fmt.Println("After start")
 	
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
