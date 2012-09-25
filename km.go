@@ -334,7 +334,6 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 	
 	k, _ := centroids.GetSize()
 	log.Printf("Start k=%d kmax=%d\n", k, kmax)
-	fmt.Println("After start")
 	
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
