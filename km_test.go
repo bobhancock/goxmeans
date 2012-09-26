@@ -156,35 +156,6 @@ func TestRandCentroids(t *testing.T) {
 
 }
 
-
-
-func TestComputeCentroid(t *testing.T) {
-	empty := matrix.Zeros(0, 0)
-	_, err := ComputeCentroid(empty)
-	if err == nil {
-		t.Errorf("Did not raise error on empty matrix")
-	}
-	twoByTwo := matrix.Ones(2, 2)
-	centr, err := ComputeCentroid(twoByTwo)
-	if err != nil {
-		t.Errorf("Could not compute centroid, err=%v", err)
-	}
-	expected := matrix.MakeDenseMatrix([]float64{1.0, 1.0}, 1, 2)
-	if !matrix.Equals(centr, expected) {
-		t.Errorf("Incorrect centroid: was %v, should have been %v", expected, centr)
-	}
-	twoByTwo.Set(0, 0, 3.0)
-	expected.Set(0, 0, 2.0)
-	centr, err = ComputeCentroid(twoByTwo)
-	if err != nil {
-		t.Errorf("Could not compute centroid, err=%v", err)
-	}
-	if !matrix.Equals(centr, expected) {
-		t.Errorf("Incorrect centroid: was %v, should have been %v", expected, centr)
-	}
-}
-
-
 func TestKmeans(t *testing.T) {
 //	datapoints, err := Load("./testSetSmall.txt")
 //	if err != nil {

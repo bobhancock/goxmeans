@@ -217,17 +217,6 @@ func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matri
 	return centroids
 }
 
-// ComputeCentroids Needs comments.
-func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
-	rows, _ := mat.GetSize()
-	vectorSum := mat.SumCols()
-	if rows == 0 {
-		return vectorSum, errors.New("No points inputted")
-	}
-	vectorSum.Scale(1.0 / float64(rows))
-	return vectorSum, nil
-}
-
 // Measurer finds the distance between the points in the columns
 type VectorMeasurer interface {
 	CalcDist(a, b *matrix.DenseMatrix) (dist float64)
