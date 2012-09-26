@@ -373,7 +373,12 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, k, kmax int,  cc, bisectc
 				break
 			} 
 		}
-		k = numCentroids
+		if numCentroids == k {
+			// there were no bisections performed, so we have hit the end of the line
+			break
+		} else {
+			k = numCentroids
+		}
 	}
 		
 //	log.Println("Finished")
