@@ -496,7 +496,7 @@ func TestXmeans(t *testing.T) {
 	centroids := cc.ChooseCentroids(DATAPOINTS_D, k)
 	cpts,_ := DATAPOINTS_D.GetSize()
 
-	models, errs := Xmeans(DATAPOINTS_D, centroids, k, 2.9,  cc, bisectcc, ed)
+	models, errs := Xmeans(DATAPOINTS_D, centroids, k, kmax,  cc, bisectcc, ed)
 	if len(errs) > 0 {
 		t.Errorf("TestXmeans: errs=%v", errs)
 	}
