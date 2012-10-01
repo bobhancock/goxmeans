@@ -120,13 +120,16 @@ type CentroidChooser interface {
 	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
 }
 
-// RandCentroids picks k uniformly distributed points from within the bounds of the dataset
+// RandCentroids picks k uniformly distributed points from within the bounds of the dataset as initial centroids.
 type randCentroids struct {}
 
-// DataCentroids picks k distinct points from the dataset
+// DataCentroids picks k distinct points from the dataset as initial centroids.
 type DataCentroids struct {}
 
-// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
+// EllipseCentroids lays out the initial centroids evenly along an elipse inscribed and centered within the boundaries of the dataset.
+// It is only defined for M=2
+// * Frac: This must be a float between 0 and 1. It determines the scale of the inscribing ellipse relative to the dataset,
+//	so Frac==1.0 produces an ellipse that spans the entire dataset, while Frac==0.5 produces an ellipse spanning half the dataset.
 type EllipseCentroids struct {
 	Frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
 }
@@ -185,7 +188,10 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 	return centroids
 }
 
-// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset.
+// EllipseCentroids lays out the initial centroids evenly along an elipse inscribed and centered within the boundaries of the dataset.
+// It is only defined for M=2
+// * Frac: This must be a float between 0 and 1. It determines the scale of the inscribing ellipse relative to the dataset,
+//	so Frac==1.0 produces an ellipse that spans the entire dataset, while Frac==0.5 produces an ellipse spanning half the dataset.
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	// TODO Cache boundaries call for each matrix so that it is not called on each bisect
@@ -201,17 +207,6 @@ func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matri
 		centroids.Set(i, 1, ry * c.Frac * math.Sin(thetaInit + float64(i) * 2.0 * math.Pi / float64(k)))
 	}
 	return centroids
-}
-
-// ComputeCentroids Needs comments.
-func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
-	rows, _ := mat.GetSize()
-	vectorSum := mat.SumCols()
-	if rows == 0 {
-		return vectorSum, errors.New("No points inputted")
-	}
-	vectorSum.Scale(1.0 / float64(rows))
-	return vectorSum, nil
 }
 
 // Measurer finds the distance between the points in the columns
