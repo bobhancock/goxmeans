@@ -11,7 +11,6 @@ import (
 	"math"
 )
 
-
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var c = flag.Int("centroids", 1234, "number of centroids")
 
@@ -27,6 +26,7 @@ func main() {
 		fmt.Printf("Could not convert arg %s to int.\n", os.Args[1])
 		return
 	}
+
 	kmax, err := strconv.Atoi(os.Args[2])
 	if err != nil {
 		fmt.Printf("Could not convert arg %s to int.\n", os.Args[2])

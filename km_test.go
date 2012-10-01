@@ -182,11 +182,7 @@ func TestKmeans(t *testing.T) {
 	datapoints := matrix.MakeDenseMatrix( []float64{2,3, 3,2, 3,4, 4,3, 8,7, 9,6, 9,8, 10,7, 3, 5}, 9,2)
 	centroids := cc.ChooseCentroids(datapoints,2)
 
-	model, err := kmeans(datapoints, centroids, ed)
-	if err != nil {
-		t.Errorf("Kmeans returned: %v", err)
-		return
-	}
+	model := kmeans(datapoints, centroids, ed)
 
 	if len(model.Clusters) != 2 {
 		t.Errorf("TestKemansp: expected 2 clusters and received %d.", len(model.Clusters))
@@ -521,28 +517,3 @@ func TestXmeans(t *testing.T) {
 		}
 	}
 }
-/*func TestZarc(t *testing.T) {
-    // ad hoc testing func
-	var ed  EuclidDist
-	points := DATAPOINTS_D
-	centroid := matrix.MakeDenseMatrix([]float64{6,7}, 1,2)
-	c0 := cluster{points, centroid, 2, 0}
-//	fmt.Printf("c0.points=%v\n", c0.points)
-	c0.Variance = variance(c0, ed)
-	fmt.Printf("variance=%f\n", c0.Variance)
-
-	clusters := []cluster{c0}
-	R, _ := points.GetSize()
-	ll := loglikelih(R, clusters)
-	fmt.Printf("\nll=%f\n", ll)
-
-//	bic := calcbic(R, 2, clusters)
-//	fmt.Printf("bic=%f\n", bic)
-}*/
-
-/*func TestZarcEllipse(t *testing.T) {
-	ec := EllipseCentroids{0.1}
-	centroids := ec.ChooseCentroids(DATAPOINTS_D, 2)
-	fmt.Printf("centroids=%v\n", centroids)
-	fmt.Printf("row1=%v\n", centroids.GetRowVector(1))
-}*/
