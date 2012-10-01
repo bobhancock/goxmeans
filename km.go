@@ -16,8 +16,7 @@ The algorithm consists of two operations repeated until completion.
 
 2. Improve structure
 
- 3. If K > Kmax then stop and return a slice of Models with BIC scores, else
-    Goto 1.
+3. If K > Kmax then stop and return a slice of Models with BIC scores, else goto 1.
 */
 package goxmeans
 
@@ -33,14 +32,10 @@ import (
 	"strings"
 	"runtime"
 	"log"
-//	"flag"
-//	"runtime/pprof"
-//	"time"
 	"github.com/bobhancock/gomatrix/matrix"
 )
 
 var numworkers = runtime.NumCPU()
-//var numworkers = 2
 
 // minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
@@ -71,7 +66,7 @@ func Load(fname, sep string) (*matrix.DenseMatrix, error) {
 	for !eof {
 		var line string
 		var buf []byte
-//		line, err := r.ReadString('\n')
+
 		buf , _, err := r.ReadLine()
 		line = string(buf)
 
@@ -85,6 +80,7 @@ func Load(fname, sep string) (*matrix.DenseMatrix, error) {
 
 		l1 := strings.TrimRight(line, "\n")
 		l := strings.Split(l1, sep)
+		
 		// If each line does not have the same number of columns then error
 		if linenum == 0 {
 			cols = len(l)
@@ -228,9 +224,7 @@ type vectorDistance struct {}
 type EuclidDist vectorDistance
 
 // CalcDist finds the Euclidean distance between points.
-// sqrt( \sigma i = 1 to N (q_i - p_i)^2 )
 func (ed EuclidDist) CalcDist(p, q *matrix.DenseMatrix) float64 {
-	// TODO Insure that p and q have only one row a piece.
 	diff := matrix.Difference(q, p)
 	diff.Sqrm() // square each value in the matrix in place
 	// To avoid allocating a new matrix the sum is placed in the 
@@ -312,6 +306,7 @@ func (c cluster) Numcentroids() int {
 }
 
 var centroids *matrix.DenseMatrix
+
 // Xmeans runs k-means for k lower bound to k upper bound on a data set.
 // Once the k centroids have converged each cluster is bisected and the BIC
 // of the orginal cluster (parent = a model with one centroid) to the 
@@ -342,10 +337,7 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 
 	for  k <= kmax {
 		log.Printf("kmeans started k=%d\n", k)
-		model, err := kmeans(datapoints, centroids, measurer)
-		if err != nil {
-			errs[strconv.Itoa(k)] = err
-		}
+		model := kmeans(datapoints, centroids, measurer)
 		
 		// Bisect the returned clusters
 		log.Println("bisect started")
@@ -378,8 +370,8 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 	return models, errs
 }
 
-// bisect takes a slice of clusters and bisects them until the parent represents
-// the best model.
+// bisect takes a slice of clusters, bisects them attempting to create a better
+// model with two new centroids.
 func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  measurer VectorMeasurer) Model {
 	// bisect each clusters and see if you can get a better BIC
 	// You are comparing ModelParent with the one centroid to ModelChild
@@ -392,6 +384,8 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  mea
 	
 	bufclusters := make([]cluster, 0)
 
+	// You would do this if you wanted to keep bisecting until only
+	// the parent won.
 	//for len(clustersToBisect) > 0  {
 	bijobs := make(chan bisectJob, numworkers)
 	biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
@@ -402,9 +396,6 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  mea
 		go doBisectJob(bidone, bijobs)
 	}
 	go awaitBisectJobsCompletion(bidone, biresults)
-	
-	// empty the []cluster
-	//		clustersToBisect = append(clustersToBisect[:0], clustersToBisect[:0]...)
 	
 	for biresult := range biresults {
 		bufclusters = append(bufclusters, biresult.clusters...)
@@ -449,7 +440,7 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  mea
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
 //
-func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) (Model, error) {
+func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) Model {
 /*  datapoints				  CentPoinDist            centroids				  
                                  ________________
    ____	  ____				  __|__	  ______	 |	  ____	___________	  
@@ -473,8 +464,6 @@ func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) 
 		done := make(chan int, numworkers)
 
 		// Pair each point with its closest centroid.
-		//TODO Benchmark to decide if there is a bottleneck between job 
-		// preparation and execution.
 		go addPairPointCentroidJobs(jobs, datapoints, centroids, measurer, results)
 		for i := 0; i < numworkers; i++ {
 			go doPairPointCentroidJobs(done, jobs)
@@ -526,7 +515,7 @@ func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) 
 	}
 	modelbic := calcbic(R, M, clusters) 
 	model := Model{modelbic, clusters}
-	return model, nil
+	return model
 }
  
 // CentroidPoint stores the row number in the centroids matrix and
@@ -551,7 +540,6 @@ type PairPointCentroidResult struct {
 	centroidRowNum float64
 	distSquared float64
 	rowNum int
-	err error
 }
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
@@ -575,7 +563,6 @@ func doPairPointCentroidJobs(done chan<- int, jobs <-chan PairPointCentroidJob) 
 
 // PairPointCentroid pairs a point with the closest centroids.
 func (job PairPointCentroidJob) PairPointCentroid() {
-	var err error = nil
     distPointToCentroid := math.Inf(1)
     centroidRowNum := float64(-1)
 	squaredErr := float64(0)
@@ -591,7 +578,7 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // 		squaredErr = math.Pow(distPointToCentroid, 2)
  		squaredErr = distPointToCentroid * distPointToCentroid
 	}	
-	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
+	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum}
 }
 
 // awaitPairPointCentroidCompletion waits until all jobs are completed.
@@ -649,12 +636,8 @@ func (job bisectJob) bisectCluster() {
 	parentCluster = append(parentCluster, job.clust)
 
 	centroids := job.bcc.ChooseCentroids(job.clust.Points, 2)
-	model, err := kmeans(job.clust.Points, centroids, job.measurer)
-	if err != nil {
-		//TODO	do something better
-		fmt.Println("Bisect ERROR", err)
-	}
-	
+	model := kmeans(job.clust.Points, centroids, job.measurer)
+
 	parentBIC := calcbic(R, M, parentCluster)
 	childBIC := calcbic(R, M, model.Clusters)
 	if childBIC > parentBIC {
