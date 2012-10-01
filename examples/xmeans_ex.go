@@ -1,3 +1,10 @@
+/*
+An example of how to invoke goxmeans.  Data is stored in a file called "datastet" in
+the working directory.  The data is only two dimensions for this example.
+
+ Usage: go run ./xmeans_ex.go k kmax
+ Where k and kmax are integers, and k <= kmax, that indicate the number of centroids to use.
+*/
 package main
 
 import (
@@ -33,6 +40,11 @@ func main() {
 		return
 	}
 
+	if kmax < k {
+		fmt.Printf("k must be <= kmax\n")
+		return
+	}
+
 	flag.Parse()
     if *cpuprofile != "" {
         f, err := os.Create(*cpuprofile)
@@ -63,7 +75,7 @@ func main() {
 	// Initial matrix of centroids to use
 	centroids := cc.ChooseCentroids(data, k)
 
-	models, errs := goxmeans.Xmeans(data, centroids, kmax, cc, bisectcc, measurer)
+	models, errs := goxmeans.Xmeans(data, centroids, k, kmax, cc, bisectcc, measurer)
 	if len(errs) > 0 {
 		for k, v := range errs {
 			fmt.Printf("%s: %v\n", k, v)

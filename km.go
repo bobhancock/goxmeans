@@ -31,7 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"runtime"
-	"log"
+//	"log"
 	"github.com/bobhancock/gomatrix/matrix"
 )
 
@@ -313,8 +313,12 @@ var centroids *matrix.DenseMatrix
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
 // 
-func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string]error) {
-	logname := "/var/tmp/xmeans.log"
+func Xmeans(datapoints, centroids *matrix.DenseMatrix, k, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string] error) {
+	var err error
+
+// Uncomment logging code as well as the import statement above if you want simple logging to the elapsed
+// time between major events.
+/*	logname := "/var/tmp/xmeans.log"
 	fp, err :=  os.OpenFile(logname, os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -326,9 +330,16 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 	}
 
 	log.SetOutput(io.Writer(fp))
-	
-	k, _ := centroids.GetSize()
-	log.Printf("Start k=%d kmax=%d\n", k, kmax)
+*/	
+	if k > kmax {
+		m := make([]Model,0)
+		e := map[string] error {
+			"k": errors.New(fmt.Sprintf("k must be <= kmax.  Received k=%d and kmax=%d.", k, kmax)),
+		}
+	    return m, e
+	}
+
+//	log.Printf("Start k=%d kmax=%d\n", k, kmax)
 	
 	R, M := datapoints.GetSize()
 	errs := make(map[string]error)
@@ -336,14 +347,14 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 	models := make([]Model, 0)
 
 	for  k <= kmax {
-		log.Printf("kmeans started k=%d\n", k)
+//		log.Printf("kmeans started k=%d\n", k)
 		model := kmeans(datapoints, centroids, measurer)
 		
 		// Bisect the returned clusters
-		log.Println("bisect started")
+//		log.Println("bisect started")
 		bimodel := bisect(model.Clusters, R, M, bisectcc, measurer)
 		numCentroids := len(bimodel.Clusters)
-		log.Printf("bisect returned %d clusters\n", numCentroids)
+//		log.Printf("bisect returned %d clusters\n", numCentroids)
 		models = append(models, model)
 
 		var cent *matrix.DenseMatrix
@@ -356,7 +367,6 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 		
 			centroids, err  = centroids.AppendRow(cent)
 			if err != nil {
-				log.Printf("AppendRow: %v\n", err)
 				errs["ApppendRow"] = err
 				break
 			} 
@@ -366,7 +376,7 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, kmax int,  cc, bisectcc C
 		}
 	}
 		
-	log.Println("Finished")
+//	log.Println("Finished")
 	return models, errs
 }
 
