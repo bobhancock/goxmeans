@@ -75,7 +75,7 @@ Bob Hancock
 
 Dan Frank
 
-Anthony Foglia, Phd
+Anthony Foglia, Ph.D
 
 Ralph Yozzo
 
