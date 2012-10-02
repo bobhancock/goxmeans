@@ -284,7 +284,6 @@ func (m Model) Numcentroids() int {
 type cluster struct {
 	Points *matrix.DenseMatrix
 	Centroid  *matrix.DenseMatrix
-	dim int // number of dimensions
 	Variance float64
 }
 
@@ -292,6 +291,11 @@ type cluster struct {
 func (c cluster) Numpoints() int {
 	r, _ := c.Points.GetSize()
 	return r
+}
+
+func (c cluster) Dim() int {
+	_, d := c.Points.GetSize()
+	return d
 }
 
 // numcentroids returns the number of centroids for a cluster.  This should normally be 1.
@@ -512,7 +516,7 @@ func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) 
 			mean := pointsInCluster.MeanCols()
 			centroids.SetRowVector(mean, cent)
 
-			clust := cluster{pointsInCluster, mean, M, 0}
+			clust := cluster{pointsInCluster, mean, 0}
 			clust.Variance = variance(clust, measurer)
 			clusters = append(clusters, clust)
 			idx++
@@ -782,7 +786,7 @@ func loglikelih(R int, c []cluster) float64 {
 		if c[i].Variance == 0 {
 			c[i].Variance = math.Nextafter(0, 1)
 		} 
-		t3 := ((fRn * float64(c[i].dim)) / 2)  * math.Log((2 * math.Pi) * c[i].Variance)
+		t3 := ((fRn * float64(c[i].Dim())) / 2)  * math.Log((2 * math.Pi) * c[i].Variance)
 		t4 := ((fRn - 1) / 2)
 
 		ll += (t1 - t2 - t3 - t4)

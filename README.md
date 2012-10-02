@@ -45,19 +45,29 @@ relationship to centroids will avoid redundant calculations.  This library is pl
 There may be some room for memoization or caching of centroid choice, but efficient caching in a concurrent environment 
 may require a separate library.
 
+Visualization is imperative.  We are working this and expect to release this functionality before the next major
+release.
+
 We provide two example data sets.  On our hardware, the floats with mantissas of length of six can take up to 10 times as 
 long as the integer data set.  This is a function of the way the CPUs process floating point numbers.
+
+This has ONLY been test on Linux.
 
 
 Installation
 =============
 Install Go.  See golang.org/doc/install
 
+Once you are sure that Go is correctly installed and your GOPATH is correctly set, execute:
 
-Dependencies
-============
-gomatrix at https://github.com/bobhancock/gomatrix.git
+go get github.com/bobhancock/goxmeans
 
+cd to $GOPATH/github.com/bobhancock/goxmeans/examples and execute:
+
+go run ./xmeans_ex.go 2 2
+
+ to test your installation.  Depending on the speed of your machine, this could take
+up to three minutes.  
 
 Members
 ========

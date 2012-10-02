@@ -295,9 +295,8 @@ func TestFreeparams(t *testing.T) {
 
 func TestVariance(t *testing.T) {
 	var ed EuclidDist
-	_, dim := DATAPOINTS_D.GetSize()
 	// Model D
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, dim, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, 0}
 	v := variance(c, ed)
 	
 	E :=  20.571429
@@ -310,8 +309,7 @@ func TestVariance(t *testing.T) {
 	}
 
 	// Variance a cluster with a perfectly centered centroids
-	_, dim0 := DATAPOINTS_D0.GetSize()
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, dim0, 0}
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, 0}
 	v0 := variance(c0, ed)
 	
 	E = 1.333333
@@ -326,10 +324,10 @@ func TestVariance(t *testing.T) {
 
 func TestLogLikelih(t *testing.T) {
 	// Model D - one cluster
-	R, M := DATAPOINTS_D.GetSize()
+	R, _ := DATAPOINTS_D.GetSize()
 	var ed EuclidDist
 
-	cd := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	cd := cluster{DATAPOINTS_D, CENTROIDS_D, 0}
 	vard := variance(cd, ed)
 	cd.Variance = vard
 
@@ -348,12 +346,12 @@ func TestLogLikelih(t *testing.T) {
 	}
 
 	// Model Dn - two clusters
-	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
+	c0 := cluster{DATAPOINTS_D0, CENTROID_D0, 0}
 	v0 := variance(c0, ed)
 	c0.Variance = v0
 
 
-	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
+	c1 := cluster{DATAPOINTS_D1, CENTROID_D1, 0}
 	v1 := variance(c1, ed)
 	c1.Variance = v1
 
@@ -404,7 +402,7 @@ func TestBic(t *testing.T) {
 	numparams := freeparams(K, M)
 	var ed EuclidDist
 
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, 0}
 	vard := variance(c, ed)
 	c.Variance = vard
 
@@ -418,11 +416,11 @@ func TestBic(t *testing.T) {
 	K = 1
 	numparamsn := freeparams(K, M)
 
-	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, M, 0}
+	c0:= cluster{DATAPOINTS_D0, CENTROID_D0, 0}
 	var0 := variance(c0, ed)
 	c0.Variance = var0
 
-	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, M, 0}
+	c1:= cluster{DATAPOINTS_D1, CENTROID_D1, 0}
 	var1 := variance(c1, ed)
 	c1.Variance = var1
 
@@ -441,7 +439,7 @@ func TestCalcbic(t *testing.T) {
 	var ed EuclidDist
 	R, M := DATAPOINTS_D.GetSize()
 	
-	c := cluster{DATAPOINTS_D, CENTROIDS_D, M, 0}
+	c := cluster{DATAPOINTS_D, CENTROIDS_D, 0}
 	vard := variance(c, ed)
 	c.Variance = vard
 	cslice := []cluster{c}

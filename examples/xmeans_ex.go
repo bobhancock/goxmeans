@@ -9,7 +9,7 @@ package main
 
 import (
 	"fmt"
-	"goxmeans"
+	"github.com/bobhancock/goxmeans"
 	"os"
 	"flag"
 	"runtime/pprof"
@@ -70,7 +70,7 @@ func main() {
 	var cc goxmeans.DataCentroids
 
 	// How to select centroids for bisection.
-	bisectcc := goxmeans.EllipseCentroids{0.5}
+	bisectcc := goxmeans.EllipseCentroids{1.0}
 
 	// Initial matrix of centroids to use
 	centroids := cc.ChooseCentroids(data, k)
