@@ -48,6 +48,13 @@ may require a separate library.
 We provide two example data sets.  On our hardware, the floats with mantissas of length of six can take up to 10 times as 
 long as the integer data set.  This is a function of the way the CPUs process floating point numbers.
 
+goxmeans will work in R^n dimensions, however, at n > 6 the process becomes extremely slow.  This is a function of the
+algorithm more so than the code.
+
+Warning:  We ran some tests on a Lenove X201 with 8 centroids and 750 rows of two dimensions and and the laptop shut down
+because it over-heated.  When you have only goxmeans running, and there is no contention for the CPUs, there are very 
+few context switches and the CPUs work flat out and can get quite hot.  We have not seen this problem on large machines.
+
 
 Installation
 =============
