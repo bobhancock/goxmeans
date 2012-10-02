@@ -15,7 +15,7 @@ Criterion (BIC) as written in \cite{Pelleg2000}.
 First an explanation of the notation: Indices $i$, $j$, \ldots will be
 used for points.  $n$, $m$, \ldots will be used to index over cluster.
 Some terms like $\mu$ and $D$ when subscripted by $n$ refer to the
-value for cluster $n$ and when subscriped by a variable in
+value for cluster $n$ and when subscripted by a variable in
 parentheses, e.g. $(i)$, refer to the value for the cluster to which
 data point (e.g. $x_i$) belongs.
 
@@ -37,8 +37,7 @@ Given that model, the probability of a data point $i$ located at $x_i$ is
                   \text{prob.\ element i is positioned} \\
                   \text{at $x_i$ if in cluster $D_n$}}}
 \end{equation}
-
-When the computed under the maximum likelihood, the first term, $P(x_i
+When computed under the maximum likelihood, the first term, $P(x_i
 \in D_n)$, is
 \begin{equation}
   \label{eq:2}
@@ -87,7 +86,7 @@ Combining \eqref{eq:1}, \eqref{eq:2}, and \eqref{eq:11}
   P(x_i) & = \frac{R_n}{R} \frac{1}{(2 \pi \sigma^2)^{M/2}} \exp\left( -\frac{1}{2 \sigma^2} \| x_i - \mu_{(i)} \|^2\right) 
 \end{align}
 
-Converting to log-likelihoods., \footnote{The logarithms in all equations in this and \cite{Pelleg2000} are base-$e$.  Different bases can be used, but they
+Converting to log-likelihoods,\footnote{The logarithms in all equations in this and \cite{Pelleg2000} are base-$e$.  Different bases can be used, but they
 would lead to additional constant factors.}
 %
 \begin{align}
@@ -145,14 +144,14 @@ down into the sum by cluster,
   \sum_i \|x_i - \mu_{(i)}\|^2 = \sum_n \sum_{i \in D_n} \|x_i - \mu{(i)} \|^2
 \end{equation}
 
-Each individual cluster is determined a spherical gaussian, for which
+Each individual cluster is a spherical gaussian, which means
 the unbiased estimator of the variance is
 \begin{equation}
   \label{eq:4}
   \hat{\sigma}_n^2 = \frac{1}{M(R_n-1)}\sum_{i \in D_n} \| x_i - \mu_n \|^2
 \end{equation}
 
-Substitution \eqref{eq:4} into \eqref{eq:3} yields
+Substitution of \eqref{eq:4} into \eqref{eq:3} yields
 \begin{equation}
   \label{eq:5}
   \sum_i \|x_i - \mu_{(i)}\|^2 = M \sum_n \left(R_n-1 \right) \hat\sigma_j^2
@@ -164,8 +163,7 @@ Gaussians have the same variance
   \label{eq:6}
   \hat{\sigma}_j^2 = \hat{\sigma}^2
 \end{equation}
-
-Then \eqref{eq:5} becomes
+then \eqref{eq:5} becomes
 \begin{align}
   \nonumber
   \sum_i \|x_i - \mu_{(i)}\|^2 &= M \left(\sum_n \left(R_n\right) - \sum_n\left( 1 \right)\right) \hat\sigma^2 \\
@@ -177,7 +175,9 @@ or,
   \label{eq:8}
   \hat{\sigma}^2 = \frac{1}{M(R-K)}\sum_{i} \| x_i - \mu_{(i)} \|^2
 \end{equation}
-which is the same as \eqref{eq:20} up to a factor of $M$.  So Moore and Pelleg are using the unbiased estimator for each cluster.  Now using the maximum likelihood assumption from \eqref{eq:5},
+which is the same as \eqref{eq:20} up to a factor of $M$.  So Pelleg
+and Moore are using the unbiased estimator for each cluster.  Now
+using the maximum likelihood assumption from \eqref{eq:5},
 %
 \begin{align}
   \label{eq:14}
@@ -189,7 +189,7 @@ which is the same as \eqref{eq:20} up to a factor of $M$.  So Moore and Pelleg a
                    - \frac{1}{2} M \left( R_n - 1 \right)\right]
 \end{align}
 
-Using $\sum_{n=1}^K R_n = R$
+Using $\sum_{n=1}^K R_n = R$,
 
 \begin{align}
   \label{eq:15}
@@ -218,10 +218,10 @@ criterion.\footnote{Actually this is the Schwarz information criterion
   \label{eq:22}
   BIC(\phi) = \hat{l}_\phi(D) - \frac{p_{\phi}}{2} \cdot \log R
 \end{equation}
-  Both work by penalizing the likelihood more as the
-complexity of the model (e.g. the number of parameters) increases.
-So, instead of checking the likelihoods only, hypothesis $\phi_2$ is
-better than hypothesis $\phi_1$ if $BIC(\phi_2) > BIC(\phi_1)$.
+Both work by penalizing the likelihood more as the complexity of the
+model (e.g.\ the number of parameters) increases.  So, instead of
+checking the likelihoods only, hypothesis $\phi_2$ is better than
+hypothesis $\phi_1$ if $BIC(\phi_2) > BIC(\phi_1)$.
 
 For clarity, the maximum likelihood can be broken into the sum of two
 parts: a model-dependent part and a model-independent part.
@@ -234,7 +234,7 @@ parts: a model-dependent part and a model-independent part.
                    &= \hat{l}_{\text{model-dependent}}(D, \phi) + \hat{l}_{\text{model-independent}}(D)
 \end{align}
 
-Using the defintion of the $BIC$ and eliminating the model-independent terms,
+Using the definition of the $BIC$ and eliminating the model-independent terms,
 \begin{align}
   \hat{l}(D, \phi_2) - \frac{p_{\phi_2}}{2} \log R &> \hat{l}(D, \phi_1) - \frac{p_{\phi_1}}{2} \log R \nonumber \\
   \label{eq:17}
