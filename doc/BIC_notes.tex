@@ -1,0 +1,256 @@
+\documentclass[letterpaper]{article}
+
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\begin{document}
+
+\title{Notes on Bayesian Information Criterion Calculation for X-Means Clustering}
+
+\maketitle
+
+This documents attempts to derive and explain the Bayesian Information
+Criterion (BIC) as written in \cite{Pelleg2000}.
+
+First an explanation of the notation: Indices $i$, $j$, \ldots will be
+used for points.  $n$, $m$, \ldots will be used to index over cluster.
+Some terms like $\mu$ and $D$ when subscripted by $n$ refer to the
+value for cluster $n$ and when subscripted by a variable in
+parentheses, e.g. $(i)$, refer to the value for the cluster to which
+data point (e.g. $x_i$) belongs.
+
+% I can replace "Pelleg and Moore" with a macro...
+The Pelleg and Moore's x-means algorithm is built around the
+``identical spherical assumption''.  The data is modeled by $n$
+gaussians, each with identical variance $\sigma$ and differing
+positions $\mu_n$.
+
+Given that model, the probability of a data point $i$ located at $x_i$ is
+%
+\begin{equation}
+  \label{eq:1}
+  P(x_i) = \sum_{n=1}^K
+               \underbrace{P(x_i \in D_n)}_{\substack{\
+                  \text{prob.\ data point i is} \\
+                  \text{an element of cluster $D_n$}}}
+               \cdot \underbrace{P(x_i | x_i \in D_n)}_{\substack{\
+                  \text{prob.\ element i is positioned} \\
+                  \text{at $x_i$ if in cluster $D_n$}}}
+\end{equation}
+When computed under the maximum likelihood, the first term, $P(x_i
+\in D_n)$, is
+\begin{equation}
+  \label{eq:2}
+  P(x_i \in D_n) = \frac{R_n}{R} = \frac{R_{(i)}}{R}
+\end{equation}
+where $R_n$ is the number of elements in the cluster.\footnote{A
+  fuller derivation can be found in \cite{DaumeIII2009}}
+
+% The next step is to figure out the point probabilities under the
+% maximum likelihood estimate $\hat{P}(x)$.  Assuming the clusters are
+% spherical gaussians, the probability for the position $x_i$ in a
+% cluster is
+
+% \begin{equation}
+%   \label{eq:9}
+%   P(x_i) \propto \exp\left( - \frac{1}{2\sigma^2} \| x_i - \mu_{(i)} \|^2 \right)
+% \end{equation}
+
+% The constant of proportionality can be determined by computing the
+% integral
+
+% \begin{align}
+%   \label{eq:10}
+%   \int P(x) &\propto \int \exp\left( - \frac{1}{2\sigma^2} \| x - \mu \|^2 \right) dx \\
+%             &= \int \exp\left( - \frac{1}{2\sigma^2} \sum_{\alpha=1}^M \left( x_{\alpha} - \mu_{\alpha} \right)^2 \right) \prod_{\alpha=1}^M dx_\alpha \\
+%             &= \int \prod_{\alpha=1}^M \exp\left( -\frac{1}{2\sigma^2} \left( x_{\alpha} - \mu_{\alpha} \right)^2 \right) dx_\alpha \\
+%             &= \prod_{\alpha=1}^M \int \exp\left( -\frac{1}{2\sigma^2} \left( x_{\alpha} - \mu_{\alpha} \right)^2 \right) dx_\alpha \\
+%             &= \prod_{\alpha=1}^M \sqrt{2 \pi \sigma^2} \\
+%             &= \left(2 \pi \sigma^2\right)^{M/2}
+% \end{align}
+
+
+
+The second term is a multivariate gaussian distribution centered at
+$\mu_n$ and with variance $\sigma^2$,
+%
+\begin{equation}
+  \label{eq:11}
+  P(x_i|x_i \in D_n) = \frac{1}{(2 \pi \sigma^2)^{M/2}} \exp\left( -\frac{1}{2 \sigma^2} \| x_i - \mu_n \|^2\right)
+\end{equation}
+
+Combining \eqref{eq:1}, \eqref{eq:2}, and \eqref{eq:11}
+%
+\begin{align}
+  \label{eq:12}
+  P(x_i) & = \frac{R_n}{R} \frac{1}{(2 \pi \sigma^2)^{M/2}} \exp\left( -\frac{1}{2 \sigma^2} \| x_i - \mu_{(i)} \|^2\right) 
+\end{align}
+
+Converting to log-likelihoods,\footnote{The logarithms in all equations in this and \cite{Pelleg2000} are base-$e$.  Different bases can be used, but they
+would lead to additional constant factors.}
+%
+\begin{align}
+  l(D) & = \log \prod_i P(x_i) \nonumber \\
+  & = \sum_i \log P(x_i) \nonumber \\
+  \label{eq:13}
+  & = \sum_i \left( \log \frac{R_n}{R}
+                        + \log \left( \frac{1}{(2 \pi \sigma^2)^{M/2}} \right)
+                        - \frac{1}{2\sigma^2} \|x_i - \mu_{(i)}\|^2 \right) \\
+  & = \sum_{n=1}^K \sum_{x_i \in D_n} \left( \log \frac{R_n}{R}
+                        + \log \left( \frac{1}{(2 \pi \sigma^2)^{M/2}} \right)
+                        - \frac{1}{2\sigma^2} \|x_i - \mu_{(i)}\|^2 \right) \\
+  & = \sum_{n=1}^K \left[ R_n \left( \log \frac{R_n}{R}
+                                     - \frac{M}{2} \log \left(2 \pi \sigma^2 \right) \right)
+                          - \frac{1}{2\sigma^2} \sum_{x_i \in D_n} \|x_i - \mu_{(i)}\|^2 \right]
+\end{align}
+
+
+In \cite{Pelleg2000} section 3.2, the authors incorrectly state the
+maximum likelihood estimate for the variance for identical spherical
+Gaussians is 
+\begin{equation}
+  \label{eq:20}
+  \hat{\sigma}^2 = \frac{1}{R-K}\sum_{i} \| x_i - \mu_{(i)} \|^2
+\end{equation}
+where the hat above the $\sigma$ is used to denote the estimator.  The
+actual maximum likelihood estimate for the variance is determined by
+setting $\frac{\partial l(D)}{\partial \sigma}$ to 0.
+\begin{align}
+  \frac{\partial l(D)}{\partial \sigma} 
+    &= \sum_{n=1}^K \left[ - \frac{M R_n}{\sigma}
+       + \frac{1}{\sigma^3} \sum_{x_i \in D_n} \|x_i - \mu_{(i)}\|^2 \right] \nonumber \\
+    &= \sigma^{-3} \sum_{n=1}^K \left[ -M R_n\sigma^2
+       + \sum_{x_i \in D_n} \|x_i - \mu_{(i)}\|^2 \right] \nonumber \\
+  \label{eq:21}
+    &= \sigma^{-3} \left[ -M R \sigma^2
+       + \sum_i \|x_i - \mu_{(i)}\|^2 \right]
+\end{align}
+which is 0 when
+
+\begin{equation}
+  \label{eq:19}
+  \hat{\sigma}^2 = \frac{1}{M R} \sum_{i} \|x_i - \mu_{(i)} \|^2
+\end{equation}
+Again using a hat to denote the variance estimate.\footnote{A more
+  detailed derivation of the maximum likelihood estimate is given in
+  \cite{DaumeIII2009}.}
+
+Both estimates for the variance are proportional to the sum of the distances
+from each data point to the nearest centroid.  This sum can be broken
+down into the sum by cluster,
+
+\begin{equation}
+  \label{eq:3}
+  \sum_i \|x_i - \mu_{(i)}\|^2 = \sum_n \sum_{i \in D_n} \|x_i - \mu{(i)} \|^2
+\end{equation}
+
+Each individual cluster is a spherical gaussian, which means
+the unbiased estimator of the variance is
+\begin{equation}
+  \label{eq:4}
+  \hat{\sigma}_n^2 = \frac{1}{M(R_n-1)}\sum_{i \in D_n} \| x_i - \mu_n \|^2
+\end{equation}
+
+Substitution of \eqref{eq:4} into \eqref{eq:3} yields
+\begin{equation}
+  \label{eq:5}
+  \sum_i \|x_i - \mu_{(i)}\|^2 = M \sum_n \left(R_n-1 \right) \hat\sigma_j^2
+\end{equation}
+
+Assuming the ``identical spherical assumption'' means all the
+Gaussians have the same variance
+\begin{equation}
+  \label{eq:6}
+  \hat{\sigma}_j^2 = \hat{\sigma}^2
+\end{equation}
+then \eqref{eq:5} becomes
+\begin{align}
+  \nonumber
+  \sum_i \|x_i - \mu_{(i)}\|^2 &= M \left(\sum_n \left(R_n\right) - \sum_n\left( 1 \right)\right) \hat\sigma^2 \\
+  \label{eq:7}
+             &= M \left( R - K \right) \hat{\sigma}^2
+\end{align}
+or, 
+\begin{equation}
+  \label{eq:8}
+  \hat{\sigma}^2 = \frac{1}{M(R-K)}\sum_{i} \| x_i - \mu_{(i)} \|^2
+\end{equation}
+which is the same as \eqref{eq:20} up to a factor of $M$.  So Pelleg
+and Moore are using the unbiased estimator for each cluster.  Now
+using the maximum likelihood assumption from \eqref{eq:5},
+%
+\begin{align}
+  \label{eq:14}
+  \hat{l}(D) &= \sum_{n=1}^K
+                   \left[ R_n \left( \log \frac{R_n}{R}
+                          - \frac{M}{2} \log \left(2 \pi \hat{\sigma}^2 \right) \right)
+                   - \frac{1}{2\hat{\sigma}^2} M \left( R_n - 1 \right) \hat{\sigma}^2 \right] \\
+             &= \sum_{n=1}^K \left[ R_n \log R_n - R_n \log R - \frac{R_nM}{2} \log \left(2 \pi \hat{\sigma}^2 \right)
+                   - \frac{1}{2} M \left( R_n - 1 \right)\right]
+\end{align}
+
+Using $\sum_{n=1}^K R_n = R$,
+
+\begin{align}
+  \label{eq:15}
+  \hat{l}(D) &= \sum_{n=1}^K R_n \log R_n - R \log R - \frac{RM}{2} \log \left(2 \pi \hat{\sigma}^2 \right)
+                   - \frac{M}{2} \left( R - K \right)
+\end{align}
+
+
+Now, consider two hypothesis, $\phi_1$ and $\phi_2$ (denoted $M_j$ in
+the article, but I want to be clear this has nothing to do with the
+number of dimensions $M$).  $K$, $R_n$, and $\sigma$ are all functions
+of the models, $\phi$.  In our case, $\phi_1$ is the clustering result
+after minimizing with a fixed number of clusters, and $\phi_2$ is the
+result after splitting one of the clusters into two and doing k-means
+only over that original cluster.  Adding more clusters will decrease
+the variance (and increase the likelihood).  (Or it could leave it
+unchanged, if the additional cluster is empty.)  To avoid constantly
+adding centroids, information criteria are used.  The main ones are
+the Akaike information criterion, and the one used in
+\cite{Pelleg2000}, the Bayesian information
+criterion.\footnote{Actually this is the Schwarz information criterion
+  used as an approximation for a Bayes factor, only valid when the
+  number of points under consideration is large.  See \cite{Kass1995}
+  for details.}
+\begin{equation}
+  \label{eq:22}
+  BIC(\phi) = \hat{l}_\phi(D) - \frac{p_{\phi}}{2} \cdot \log R
+\end{equation}
+Both work by penalizing the likelihood more as the complexity of the
+model (e.g.\ the number of parameters) increases.  So, instead of
+checking the likelihoods only, hypothesis $\phi_2$ is better than
+hypothesis $\phi_1$ if $BIC(\phi_2) > BIC(\phi_1)$.
+
+For clarity, the maximum likelihood can be broken into the sum of two
+parts: a model-dependent part and a model-independent part.
+\begin{align}
+  \label{eq:16}
+  \hat{l}(D, \phi) &= \sum_{n=1}^{K(\phi)} R_n(\phi) \log R_n(\phi) - R \log R - \frac{RM}{2} \log \left(2 \pi \hat{\sigma}(\phi)^2 \right)
+                   - \frac{M}{2} \left( R - K(\phi) \right) \\
+                   &= \left[ \sum_{n=1}^{K(\phi)} R_n(\phi) \log R_n(\phi) - \frac{M K(\phi)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi)^2 \right) \right] \nonumber \\
+                   & \quad - \left[ \frac{M R}{2} + R \log R + \frac{RM}{2} \log 2 \pi \right] \\
+                   &= \hat{l}_{\text{model-dependent}}(D, \phi) + \hat{l}_{\text{model-independent}}(D)
+\end{align}
+
+Using the definition of the $BIC$ and eliminating the model-independent terms,
+\begin{align}
+  \hat{l}(D, \phi_2) - \frac{p_{\phi_2}}{2} \log R &> \hat{l}(D, \phi_1) - \frac{p_{\phi_1}}{2} \log R \nonumber \\
+  \label{eq:17}
+  \hat{l}_{\text{model-dependent}}(D, \phi_2) - \frac{p_{\phi_2}}{2} \log R &> \hat{l}_{\text{model-dependent}}(D, \phi_1) - \frac{p_{\phi_1}}{2} \log R \nonumber \\
+\end{align}
+
+This gives a final test of the form
+\begin{multline}
+  \label{eq:18}
+  \left[ \sum_{n=1}^{K(\phi_2)} R_n(\phi_2) \log R_n(\phi_2) - \frac{M K(\phi_2)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi_2)^2 \right) \right] - \frac{p_{\phi_2}}{2} \log R \\
+   > \left[ \sum_{n=1}^{K(\phi_1)} R_n(\phi_1) \log R_n(\phi_1) - \frac{M K(\phi_1)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi_1)^2 \right) \right] - \frac{p_{\phi_1}}{2} \log R
+\end{multline}
+%
+If this inequality holds, $\phi_2$ is considered a better model the $\phi_1$.
+
+\bibliography{BIC_notes}{}
+\bibliographystyle{plainnat}
+
+\end{document}

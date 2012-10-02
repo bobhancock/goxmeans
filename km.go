@@ -8,6 +8,15 @@
  R = |D| the number of points in a model.
 
  M = number of dimensions assuming spherical Gaussians.
+
+
+The algorithm consists of two operations repeated until completion.
+
+1. Improve parameters
+
+2. Improve structure
+
+3. If K > Kmax then stop and return a slice of Models with BIC scores, else goto 1.
 */
 package goxmeans
 
@@ -21,14 +30,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
-//	"runtime"
+	"runtime"
 //	"log"
 	"github.com/bobhancock/gomatrix/matrix"
-	"goxmeans/matutil"
 )
 
-//var numworkers = runtime.NumCPU()
-var numworkers = 1
+var numworkers = runtime.NumCPU()
 
 // minimum returns the smallest int.
 func minimum(x int, ys ...int) int {
@@ -40,52 +47,8 @@ func minimum(x int, ys ...int) int {
     return x
 }
 
-// Atof64 is shorthand for ParseFloat(s, 64)
-func Atof64(s string) (f float64, err error) {
-	f64, err := strconv.ParseFloat(s, 64)
-	return float64(f64), err
-}
-
-type CentroidChooser interface {
-	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
-}
-
-// RandCentroids picks k uniformly distributed points from within the bounds of the dataset
-type RandCentroids struct {}
-
-// DataCentroids picks k distinct points from the dataset
-type DataCentroids struct {}
-
-// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
-type EllipseCentroids struct {
-	frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
-}
-
-type Model struct {
-	bic float64
-	clusters []cluster
-}
-
-// cluster models an individual cluster.
-type cluster struct {
-	points *matrix.DenseMatrix
-	centroid  *matrix.DenseMatrix
-	dim int // number of dimensions
-	variance float64
-}
-
-func (c cluster) numpoints() int {
-	r, _ := c.points.GetSize()
-	return r
-}
-
-func (c cluster) numcentroids() int {
-	r, _ := c.centroid.GetSize()
-	return r
-}
-
-// Load loads a tab delimited text file of floats into a slice.
-func Load(fname string) (*matrix.DenseMatrix, error) {
+// Load loads a tab delimited text file of floats into a matrix.
+func Load(fname, sep string) (*matrix.DenseMatrix, error) {
 	z := matrix.Zeros(1,1)
 
 	fp, err := os.Open(fname)
@@ -103,7 +66,7 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 	for !eof {
 		var line string
 		var buf []byte
-//		line, err := r.ReadString('\n')
+
 		buf , _, err := r.ReadLine()
 		line = string(buf)
 
@@ -116,7 +79,8 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		}
 
 		l1 := strings.TrimRight(line, "\n")
-		l := strings.Split(l1, "\t")
+		l := strings.Split(l1, sep)
+		
 		// If each line does not have the same number of columns then error
 		if linenum == 0 {
 			cols = len(l)
@@ -133,19 +97,15 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 		linenum++
 
 		// Convert the strings to  float64 and build up the slice t by appending.
-		t := make([]float64, 1)
+		t := make([]float64, 0)
 
-		for i, v := range l {
-			f, err := Atof64(string(v))
+		for _, v := range l {
+			v = strings.TrimSpace(v)
+			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
-				return z, errors.New(fmt.Sprintf("goxmeanx.Load: cannot convert value %s to float64.", v))
+				return z, errors.New(fmt.Sprintf("goxmeans.Load: cannot convert value %s to float64.", v))
 			}
-			if i == 0 {
-				t[0] = f
-			} else {
-				t = append(t, f)
-			}
-			
+			t = append(t, f)
 		}
 		data = append(data, t...)
 	}
@@ -153,9 +113,30 @@ func Load(fname string) (*matrix.DenseMatrix, error) {
 	return mat, nil
 }
 
+// CentroidChooser is the interface that wraps CentroidChooser function.
+//
+// CetnroidChooser returns a matrix of K coordinates in M dimensions.
+type CentroidChooser interface {
+	ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix
+}
+
+// RandCentroids picks k uniformly distributed points from within the bounds of the dataset as initial centroids.
+type randCentroids struct {}
+
+// DataCentroids picks k distinct points from the dataset as initial centroids.
+type DataCentroids struct {}
+
+// EllipseCentroids lays out the initial centroids evenly along an elipse inscribed and centered within the boundaries of the dataset.
+// It is only defined for M=2
+// * Frac: This must be a float between 0 and 1. It determines the scale of the inscribing ellipse relative to the dataset,
+//	so Frac==1.0 produces an ellipse that spans the entire dataset, while Frac==0.5 produces an ellipse spanning half the dataset.
+type EllipseCentroids struct {
+	Frac float64 // must be btw 0 and 1, this will be what fraction of a truly inscribing ellipse this is
+}
+
 // chooseCentroids picks random centroids based on the min and max values in the matrix
-// and return a k by cols matrix of the centroids.
-func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
+// and return a k by m matrix of the centroids.
+func (c randCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
 
@@ -184,13 +165,14 @@ func (c RandCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.D
 	return centroids
 }
 
-// DataCentroids picks k distinct points from the dataset
-func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix, error) {
+// DataCentroids picks k distinct points from the dataset.  If k is > points in
+// the matrix then k is set to the number of points.
+func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.DenseMatrix) {
 	// first set up a map to keep track of which data points have already been chosen so we don't dupe
 	rows, cols := mat.GetSize()
 	centroids := matrix.Zeros(k, cols)
 	if k > rows {
-		return centroids, errors.New("ChooseCentroids: Can't compute more centroids than data points!")
+		k = rows
 	}
 
 	chosenIdxs := make(map [int]bool, k)
@@ -203,120 +185,240 @@ func (c DataCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) (*matrix.
 		centroids.SetRowVector(mat.GetRowVector(idx).Copy(), i)
 		i += 1
 	}
-	return centroids, nil
+	return centroids
 }
 
-// EllipseCentroids lays out the centroids along an elipse inscribed within the boundaries of the dataset
+// EllipseCentroids lays out the initial centroids evenly along an elipse inscribed and centered within the boundaries of the dataset.
+// It is only defined for M=2
+// * Frac: This must be a float between 0 and 1. It determines the scale of the inscribing ellipse relative to the dataset,
+//	so Frac==1.0 produces an ellipse that spans the entire dataset, while Frac==0.5 produces an ellipse spanning half the dataset.
 func (c EllipseCentroids) ChooseCentroids(mat *matrix.DenseMatrix, k int) *matrix.DenseMatrix {
 	_, cols := mat.GetSize()
-	var xmin, xmax, ymin, ymax = matutil.GetBoundaries(mat) 
+	// TODO Cache boundaries call for each matrix so that it is not called on each bisect
+	var xmin, xmax, ymin, ymax = boundaries(mat) 
+
 	x0, y0 := xmin + (xmax - xmin)/2.0, ymin + (ymax-ymin)/2.0
 	centroids := matrix.Zeros(k, cols)
 	rx, ry := xmax - x0, ymax - y0  
 	thetaInit := rand.Float64() * math.Pi
 
 	for i := 0; i < k; i++ {
-		centroids.Set(i, 0, rx * c.frac * math.Cos(thetaInit + float64(i) * math.Pi / float64(k)))
-		centroids.Set(i, 1, ry * c.frac * math.Sin(thetaInit + float64(i) * math.Pi / float64(k)))
+		centroids.Set(i, 0, rx * c.Frac * math.Cos(thetaInit + float64(i) * 2.0 * math.Pi / float64(k)))
+		centroids.Set(i, 1, ry * c.Frac * math.Sin(thetaInit + float64(i) * 2.0 * math.Pi / float64(k)))
 	}
 	return centroids
 }
 
-// ComputeCentroids Needs comments.
-func ComputeCentroid(mat *matrix.DenseMatrix) (*matrix.DenseMatrix, error) {
-	rows, _ := mat.GetSize()
-	vectorSum := mat.SumCols()
-	if rows == 0 {
-		return vectorSum, errors.New("No points inputted")
-	}
-	vectorSum.Scale(1.0 / float64(rows))
-	return vectorSum, nil
+// Measurer finds the distance between the points in the columns
+type VectorMeasurer interface {
+	CalcDist(a, b *matrix.DenseMatrix) (dist float64)
 }
 
-// Kmeansmodels runs k-means for k lower bound to k upper bound on a data set.
-//  Once the k centroids have converged each cluster is bisected and the BIC
+type vectorDistance struct {}
+
+type EuclidDist vectorDistance
+
+// CalcDist finds the Euclidean distance between points.
+func (ed EuclidDist) CalcDist(p, q *matrix.DenseMatrix) float64 {
+	diff := matrix.Difference(q, p)
+	diff.Sqrm() // square each value in the matrix in place
+	// To avoid allocating a new matrix the sum is placed in the 
+	// first column of each row.  N.B. this modifies the matrix directly.
+	diff.SumRowsM() 
+	// Each point coordinate consists of 1 row and M cols.  So,
+	// the sum will be at [0, 0]
+	s := diff.Get(0, 0)
+
+	return math.Sqrt(s)
+}
+
+type ManhattanDist struct {}
+
+// CalcDist finds the ManhattanDistance which is the sum of the aboslute 
+// difference of the coordinates.   Also known as rectilinear distance, 
+// city block distance, or taxicab distance.
+func (md ManhattanDist) CalcDist(a, b *matrix.DenseMatrix) float64 {
+	return math.Abs(a.Get(0,0) - b.Get(0,0)) + math.Abs(a.Get(0,1) - b.Get(0,1))
+}
+
+// boundaries returns the max and min x and y values for a dense matrix
+// of shape m x m.
+func boundaries(mat *matrix.DenseMatrix) (xmin, xmax, ymin, ymax float64) {
+	rows, _ := mat.GetSize()
+	xmin, ymin = mat.Get(0,0), mat.Get(0,1)
+	xmax, ymax = mat.Get(0,0), mat.Get(0,1)
+
+	for i := 1; i < rows; i++ {
+		xi, yi := mat.Get(i, 0), mat.Get(i, 1)
+		
+		if xi > xmax{
+			xmax = xi
+		} else if xi < xmin {
+			xmin = xi
+		}
+
+		if yi > ymax{
+			ymax = yi
+		} else if yi < ymin {
+			ymin = yi
+		}
+	}
+	return
+}
+
+// Model is a statistical model with a BIC score and a collection of clusters.
+type Model struct {
+	Bic float64
+	Clusters []cluster
+}
+
+func (m Model) Numcentroids() int {
+	c := 0
+	for _, clust := range m.Clusters {
+		c += clust.Numcentroids()
+	}
+	return c
+}
+
+// cluster models an individual cluster.
+type cluster struct {
+	Points *matrix.DenseMatrix
+	Centroid  *matrix.DenseMatrix
+	Variance float64
+}
+
+// numpoints returns the number of points in a cluster.
+func (c cluster) Numpoints() int {
+	r, _ := c.Points.GetSize()
+	return r
+}
+
+func (c cluster) Dim() int {
+	_, d := c.Points.GetSize()
+	return d
+}
+
+// numcentroids returns the number of centroids for a cluster.  This should normally be 1.
+func (c cluster) Numcentroids() int {
+	r, _ := c.Centroid.GetSize()
+	return r
+}
+
+var centroids *matrix.DenseMatrix
+
+// Xmeans runs k-means for k lower bound to k upper bound on a data set.
+// Once the k centroids have converged each cluster is bisected and the BIC
 // of the orginal cluster (parent = a model with one centroid) to the 
 // the bisected model which consists of two centroids and whichever is greater
 // is committed to the set of clusters for this larger model k.
 // 
-// TODO How many bisections should be tried?
-// TODO Parallelize bisection of clusters
-// TODO Allow spearate CentroidChoosers for parent and child models.
-//
-// Why do some models have zero clusters?
-// With a large number of centroids why is variance inf?
-// Use a different centroid chooser.
-func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]Model, map[string]error) {
+func Xmeans(datapoints, centroids *matrix.DenseMatrix, k, kmax int,  cc, bisectcc CentroidChooser, measurer VectorMeasurer) ([]Model, map[string] error) {
+	var err error
+
+// Uncomment logging code as well as the import statement above if you want simple logging to the elapsed
+// time between major events.
+/*	logname := "/var/tmp/xmeans.log"
+	fp, err :=  os.OpenFile(logname, os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fp, err = os.Create(logname)
+    		if err != nil {
+	    		fmt.Printf("Xmeans: cannot open %s for logging.\n", logname)
+			}
+		} 
+	}
+
+	log.SetOutput(io.Writer(fp))
+*/	
+	if k > kmax {
+		m := make([]Model,0)
+		e := map[string] error {
+			"k": errors.New(fmt.Sprintf("k must be <= kmax.  Received k=%d and kmax=%d.", k, kmax)),
+		}
+	    return m, e
+	}
+
+//	log.Printf("Start k=%d kmax=%d\n", k, kmax)
+	
 	R, M := datapoints.GetSize()
-	models := make([]Model, kup)
 	errs := make(map[string]error)
+	runtime.GOMAXPROCS(numworkers)
+	models := make([]Model, 0)
 
-	for k := klow; k <= kup; k++ {
-		bufclusters := make([]cluster, 1)
-		clusters, err := Kmeansp(datapoints, k, cc, measurer)
-		if err != nil {
-			errs[strconv.Itoa(k)] = err
-		}
+	for  k <= kmax {
+//		log.Printf("kmeans started k=%d\n", k)
+		model := kmeans(datapoints, centroids, measurer)
 		
-		// clusters is a []cluster. 
-		// bisect each clusters and see if you can get a better BIC
-		// You are comparing ModelA with the one centroid to ModelA_1
-		// bisected with two centroids.
-		for j, clust := range clusters {
-			vari := variance(clust, measurer)
-			clust.variance = vari
-			parentbic := calcbic(R, M, []cluster{clust})
+		// Bisect the returned clusters
+//		log.Println("bisect started")
+		bimodel := bisect(model.Clusters, R, M, bisectcc, measurer)
+		numCentroids := len(bimodel.Clusters)
+//		log.Printf("bisect returned %d clusters\n", numCentroids)
+		models = append(models, model)
 
-			//fmt.Printf("Before: j=%d clust.points=%v\n", j, clust.points)
-			biclusters, berr := Kmeansp(clust.points, 2, cc, measurer)
-			if berr != nil {
-				idx := strconv.Itoa(k)+"."+strconv.Itoa(j)
-				errs[idx] = berr
-				continue
+		var cent *matrix.DenseMatrix
+				
+		if numCentroids <= kmax {
+			for  rowexists := true; rowexists == true; {
+				cent = cc.ChooseCentroids(datapoints, 1)
+				rowexists = centroids.RowExists(cent)
 			}
-			//Compare the BIC of this model to the parent
-			for _, biclust := range biclusters {
-			    biclust.variance = variance(biclust, measurer)
-			}
-			/*for i := 0; i < len(biclusters); i++ {
-				biclusters[i].variance = variance(biclusters[i], measurer)
-			}*/
-			childbic := calcbic(clust.numpoints(), M, biclusters)
-			
-			// Whichever model is better goes into the array of clusters
-			// for this model k.
-			if parentbic >= childbic { 
-				if j == 0 {
-					bufclusters[0] = clust
-				} else {
-					bufclusters = append(bufclusters, clust)
-				}
-			}
-
-			if childbic > parentbic {
-				if  j == 0 {
-					bufclusters[0] = biclusters[0]
-					bufclusters = append(bufclusters, biclusters[1:]...)
-				} else {
-					bufclusters = append(bufclusters, biclusters...)
-				}
+		
+			centroids, err  = centroids.AppendRow(cent)
+			if err != nil {
+				errs["ApppendRow"] = err
+				break
 			} 
-		}
-		// Add this model to the model slice
-		modelbic := calcbic(R, M, bufclusters) //<==ERROR
-		m := Model{modelbic, bufclusters}
-		if k == klow {
-			models[0] = m
+			k++
 		} else {
-			models = append(models, m)
+			k = numCentroids
 		}
 	}
+		
+//	log.Println("Finished")
 	return models, errs
 }
+
+// bisect takes a slice of clusters, bisects them attempting to create a better
+// model with two new centroids.
+func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  measurer VectorMeasurer) Model {
+	// bisect each clusters and see if you can get a better BIC
+	// You are comparing ModelParent with the one centroid to ModelChild
+	// bisected with two centroids.
+	bufsize := 0.0
+	for _, clust := range clustersToBisect {
+		numRows, _ := clust.Points.GetSize()
+		bufsize = math.Max(bufsize, float64(numRows))
+	}
 	
-// Kmeansp partitions datapoints into K clusters.  This results in a partitioning of
+	bufclusters := make([]cluster, 0)
+
+	// You would do this if you wanted to keep bisecting until only
+	// the parent won.
+	//for len(clustersToBisect) > 0  {
+	bijobs := make(chan bisectJob, numworkers)
+	biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
+	bidone := make(chan int, numworkers)
+		
+	go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
+	for i := 0; i < numworkers; i++ {
+		go doBisectJob(bidone, bijobs)
+	}
+	go awaitBisectJobsCompletion(bidone, biresults)
+	
+	for biresult := range biresults {
+		bufclusters = append(bufclusters, biresult.clusters...)
+	}
+	
+	modelbic := calcbic(R, M, bufclusters) 
+	model := Model{modelbic, bufclusters}
+	return model
+}
+
+// kmeans partitions datapoints into K clusters.  This results in a partitioning of
 // the data space into Voronoi cells.  The problem is NP-hard so here we attempt
-// to parallelize as many processes as possible to reduce the running time.
+// to parallelize or make concurrent as many processes as possible to reduce the 
+// running time.
 //
 // 1. Place K points into the space represented by the objects that are being clustered.
 // These points represent initial group centroids.
@@ -324,7 +426,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 // 2. Assign each object to the group that has the closest centroid.
 //
 // 3. When all objects have been assigned, recalculate the positions of the K centroids
-// by calculating the mean of all cooridnates in a group (i.e., cluster) and making that
+// by calculating the mean of all cooridnates in a cluster and making that
 // the new centroid.
 //
 // 4. Repeat Steps 2 and 3 until the centroids no longer move.
@@ -337,7 +439,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 //  |_____    __________|
 // 
 //
-// CentPointDist is ax R x 2 matrix.  The rows have a 1:1 relationship to 
+// CentPointDist is ax R x M matrix.  The rows have a 1:1 relationship to 
 // the rows in datapoints.  Column 0 contains the row number in centroids
 // that corresponds to the centroid for the datapoint in row i of this matrix.
 // Column 1 contains (x_i - mu(i))^2.
@@ -347,7 +449,7 @@ func Models(datapoints *matrix.DenseMatrix, klow, kup int, cc CentroidChooser, m
 //  | 0        14.12 | <-- Centroid 0, squared error for the coordinates in row 2 of datapoints
 //  _____     _______
 //
-func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer matutil.VectorMeasurer) ([]cluster, error) {
+func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) Model {
 /*  datapoints				  CentPoinDist            centroids				  
                                  ________________
    ____	  ____				  __|__	  ______	 |	  ____	___________	  
@@ -355,51 +457,45 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
    | 3.0  5.1| <-- row i --> |	3	  32.12 |  row 3 | 3	 38.1, ... |		  
    |____  ___|				 |____	  ______|	     |___	__________ |			  
 */
-/*	fp, _ := os.Create("/var/tmp/km.log")
-	w := io.Writer(fp)
-	log.SetOutput(w)
-*/
-
-	centroids := cc.ChooseCentroids(datapoints, k)
-	
-	numRows, M := datapoints.GetSize()
-	CentPointDist := matrix.Zeros(numRows, M)
+	R, M := datapoints.GetSize()
+	CentPointDist := matrix.Zeros(R,2)
+	k, _ := centroids.GetSize()
 
 	clusterChanged := true
-	clusters := make([]cluster, 1)
+	var clusters []cluster
 
 	for ; clusterChanged == true ; {
 		clusterChanged = false
-		clusters = make([]cluster, 1)
+		clusters = make([]cluster, 0)
 
 		jobs := make(chan PairPointCentroidJob, numworkers)
-		results := make(chan PairPointCentroidResult, minimum(1024, numRows))
+		results := make(chan PairPointCentroidResult, minimum(1024, R))
 		done := make(chan int, numworkers)
 
 		// Pair each point with its closest centroid.
-		go addPairPointCentroidJobs(jobs, datapoints, centroids, CentPointDist, measurer, results)
+		go addPairPointCentroidJobs(jobs, datapoints, centroids, measurer, results)
 		for i := 0; i < numworkers; i++ {
 			go doPairPointCentroidJobs(done, jobs)
 		}
 		go awaitPairPointCentroidCompletion(done, results)
 
 		clusterChanged = assessClusters(CentPointDist, results) // This blocks so that all the results can be processed
-//		fmt.Printf("kmeansp: clusterChanged=%v\n", clusterChanged)
-		
-		// Now that you have each data point grouped with a centroid,
+
+		// You have each data point grouped with a centroid,
 		for idx, cent := 0, 0; cent < k; cent++ {
 			// Select all the rows in CentPointDist whose first col value == cent.
 			// Get the corresponding row vector from datapoints and place it in pointsInCluster.
-			//fmt.Printf("kmeansp: cent=%d: clusterAss=%v\n", cent, CentPointDist)
-			matches, err :=	CentPointDist.FiltColMap(float64(cent), float64(cent), 0)  
+			r, _ := CentPointDist.GetSize()
+			matches := make([]int, 0)
 
-			// matches - a map[int]float64 where the key is the row number in source 
-			//matrix  and the value is the value in the column of the source matrix 
-			//specified by col.  Here the value is the centroid paired with the point.
-			if err != nil {
-				return clusters, err
+			for i := 0; i < r; i++ {
+				v := CentPointDist.Get(i, 0)
+				if v == float64(cent) {
+					matches = append(matches, i)
+				}
 			}
-			// It is possible that some centroids could not have any points, so there 
+
+			// It is possible that some centroids may have zero points, so there 
 			// may not be any matches.
 			if len(matches) == 0 {
 				continue
@@ -407,34 +503,30 @@ func Kmeansp(datapoints *matrix.DenseMatrix, k int, cc CentroidChooser, measurer
 
 			pointsInCluster := matrix.Zeros(len(matches), M) 
 			i := 0
-			for rownum, _ := range matches {
-				//fmt.Printf("kmeansp: cent=%d centroid=%f rownum=%d\n", cent, centroid, rownum)
+
+			for _, rownum := range matches {
 				pointsInCluster.Set(i, 0, datapoints.Get(int(rownum), 0))
 				pointsInCluster.Set(i, 1, datapoints.Get(int(rownum), 1))
 				i++
 			}
-//			fmt.Printf("kmeansp: cent=%d pointsInCluster=%v\n", cent, pointsInCluster)
+
 			// pointsInCluster now contains all the data points for the current 
 			// centroid.  The mean of the coordinates for this cluster becomes 
 			// the new centroid for this cluster.
 			mean := pointsInCluster.MeanCols()
 			centroids.SetRowVector(mean, cent)
-//			fmt.Printf("kmeansp: cent=%d centroids=%v\n", cent, centroids)
 
-			clust := cluster{pointsInCluster, mean, M, 0}
-			clust.variance = variance(clust, measurer)
-			if idx == 0 {
-				clusters[0] = clust
-			} else {
-				clusters = append(clusters, clust)
-			}
+			clust := cluster{pointsInCluster, mean, 0}
+			clust.Variance = variance(clust, measurer)
+			clusters = append(clusters, clust)
 			idx++
 		}
 	}
-	//return centroids, CentPointDist, nil
-	return clusters, nil
+	modelbic := calcbic(R, M, clusters) 
+	model := Model{modelbic, clusters}
+	return model
 }
-
+ 
 // CentroidPoint stores the row number in the centroids matrix and
 // the distance squared between the centroid and the point.
 type CentroidPoint struct {
@@ -442,32 +534,30 @@ type CentroidPoint struct {
 	distPointToCentroidSq float64
 }
 
-// PairPointCentroidJobs stores the elements that defines the job that pairs a 
-// point (i.e., a data point) with a centroid.
+// PairPointCentroidJobs stores the elements that define the job that pairs a 
+// point with a centroid.
 type PairPointCentroidJob struct {
-	point, centroids, CentPointDist *matrix.DenseMatrix
+	point, centroids *matrix.DenseMatrix
 	results chan<- PairPointCentroidResult
 	rowNum int
-	measurer matutil.VectorMeasurer
+	measurer VectorMeasurer
 }
 
-// PairPointCentroidResult stores the results of pairing a data point with a 
-// centroids.
+// PairPointCentroidResult stores the results of pairing a point with a 
+// centroid.
 type PairPointCentroidResult struct {
 	centroidRowNum float64
 	distSquared float64
 	rowNum int
-	err error
 }
 
 // addPairPointCentroidJobs adds a job to the jobs channel.
-func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, centroids,
-	CentPointDist *matrix.DenseMatrix, measurer matutil.VectorMeasurer, results chan<- PairPointCentroidResult) {
+func addPairPointCentroidJobs(jobs chan<- PairPointCentroidJob, datapoints, 
+	centroids *matrix.DenseMatrix,	measurer VectorMeasurer, results chan<- PairPointCentroidResult) {
 	numRows, _ := datapoints.GetSize()
     for i := 0; i < numRows; i++ { 
 		point := datapoints.GetRowVector(i)
-//		fmt.Printf("398: i=%d numRows=%d\n",i,numRows)
-		jobs <- PairPointCentroidJob{point, centroids, CentPointDist, results, i, measurer}
+		jobs <- PairPointCentroidJob{point, centroids, results, i, measurer}
 	}
 	close(jobs)
 }
@@ -478,6 +568,26 @@ func doPairPointCentroidJobs(done chan<- int, jobs <-chan PairPointCentroidJob) 
 		job.PairPointCentroid()
 	}
 	done <- 1
+}
+
+// PairPointCentroid pairs a point with the closest centroids.
+func (job PairPointCentroidJob) PairPointCentroid() {
+    distPointToCentroid := math.Inf(1)
+    centroidRowNum := float64(-1)
+	squaredErr := float64(0)
+	k, _ := job.centroids.GetSize()
+
+	// Find the centroid that is closest to this point.
+    for j := 0; j < k; j++ { 
+     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
+        if distJ  < distPointToCentroid {
+            distPointToCentroid = distJ
+            centroidRowNum = float64(j)
+		} 
+// 		squaredErr = math.Pow(distPointToCentroid, 2)
+ 		squaredErr = distPointToCentroid * distPointToCentroid
+	}	
+	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum}
 }
 
 // awaitPairPointCentroidCompletion waits until all jobs are completed.
@@ -501,38 +611,68 @@ func assessClusters(CentPointDist *matrix.DenseMatrix, results <-chan PairPointC
 	return change
 }
 	
-// AssignPointToCentroid checks a data point against all centroids and returns the best match.
-// The centroid is identified by the row number in the centroid matrix.
-func (job PairPointCentroidJob) PairPointCentroid() {
-	var err error = nil
-    distPointToCentroid := math.Inf(1)
-    centroidRowNum := float64(-1)
-	squaredErr := float64(0)
-	k, _ := job.centroids.GetSize()
-
-	// Find the centroid that is closest to this point.
-    for j := 0; j < k; j++ { 
-     	distJ := job.measurer.CalcDist(job.centroids.GetRowVector(j), job.point)
-        if distJ  < distPointToCentroid {
-            distPointToCentroid = distJ
-            centroidRowNum = float64(j)
-		} 
- 		squaredErr = math.Pow(distPointToCentroid, 2)
-		//fmt.Printf("squaredErr=%f\n", squaredErr)
-	}	
-	job.results <- PairPointCentroidResult{centroidRowNum, squaredErr, job.rowNum, err}
+type bisectJob struct {
+	clust cluster
+	bcc CentroidChooser
+	measurer VectorMeasurer
+	results chan<- bisectResult 
 }
 
+type bisectResult struct {
+	centroids *matrix.DenseMatrix
+	bic float64
+	clusters []cluster
+}
+
+func addBisectJobs(jobs chan<- bisectJob, clusters []cluster, cc CentroidChooser,
+	measurer VectorMeasurer,  results chan<- bisectResult) {
+	for _, clust := range clusters {
+		jobs <- bisectJob{clust, cc, measurer, results}
+	}
+	close(jobs)
+}
+
+func doBisectJob(done chan<- int, jobs <-chan bisectJob) {
+	for job := range jobs {
+		job.bisectCluster()
+	}
+	done <- 1
+}
+
+func (job bisectJob) bisectCluster() {
+	R, M := job.clust.Points.GetSize()
+	parentCluster := make([]cluster,0)
+	parentCluster = append(parentCluster, job.clust)
+
+	centroids := job.bcc.ChooseCentroids(job.clust.Points, 2)
+	model := kmeans(job.clust.Points, centroids, job.measurer)
+
+	parentBIC := calcbic(R, M, parentCluster)
+	childBIC := calcbic(R, M, model.Clusters)
+	if childBIC > parentBIC {
+		job.results <- bisectResult{centroids, childBIC, model.Clusters}
+	} else {
+		job.results <- bisectResult{centroids, parentBIC, parentCluster}
+	}
+}
+
+func awaitBisectJobsCompletion(done <- chan int, results chan bisectResult) {
+	for i := 0; i < numworkers; i++ {
+		<-done
+	}
+	close(results)
+}
+	
 // variance is the maximum likelihood estimate (MLE) for the variance, under
 // the identical spherical Gaussian assumption.
 //
-// points = an R x M matrix of all data point coordinates.
+// points = an R x M matrix of all point coordinates.
 //
-// CentPointDist =  R x 2 matrix.  Column 0 contains the index {0...K} of
+// CentPointDist =  R x M+1 matrix.  Column 0 contains the index {0...K-1} of
 // a centroid.  Column 1 contains (datapoint_i - mu(i))^2 
 // 
 // centroids =  K x M+1 matrix.  Column 0 continas the centroid index {0...K}.
-// Columns 1...M contain the centroid coordinates.  (See Kmeansp() for an example.)
+// Columns 1...M contain the centroid coordinates.  (See kmeans() for an example.)
 //
 //    1        __                 2
 // ------  *  \     (x   -  mu   ) 
@@ -551,21 +691,20 @@ func (job PairPointCentroidJob) PairPointCentroid() {
 // R - K /__  i          2 \/__  i /  
 //                (R - K)      
 //    
-func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
-	if matrix.Equals(c.points, c.centroid) == true {
+func variance(c cluster, measurer VectorMeasurer) float64 {
+	if matrix.Equals(c.Points, c.Centroid) == true {
 		return 0.0
 	}
 
 	sum := float64(0)
-	denom := float64(c.numpoints() - c.numcentroids())
+	denom := float64(c.Numpoints() - c.Numcentroids())
 
-	for i := 0; i < c.numpoints(); i++ {
-		p := c.points.GetRowVector(i)
-		mu_i := c.centroid.GetRowVector(0)
+	for i := 0; i < c.Numpoints(); i++ {
+		p := c.Points.GetRowVector(i)
+		mu_i := c.Centroid.GetRowVector(0)
 		dist := measurer.CalcDist(mu_i, p)
-		sum += math.Pow(dist, 2) 
+		sum += dist * dist
 	}
-	//fmt.Printf("denom=%f sum=%f\n", denom, sum)
 	v := (1.0 / denom) * sum
 	return v
 }
@@ -587,7 +726,7 @@ func variance(c cluster, measurer matutil.VectorMeasurer) float64 {
 //
 // This is just the probability that a point exists (Ri / R) times the normal, or Gaussian,  distribution 
 // for the number of dimensions.
-func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matutil.VectorMeasurer) float64 {
+func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer VectorMeasurer) float64 {
 	exists := float64(Ri / R)
 	normdist := normDist(M, V, point, mu, measurer)
 	prob := exists * normdist
@@ -599,7 +738,7 @@ func pointProb(R, Ri, M, V float64, point, mu *matrix.DenseMatrix, measurer matu
 // M = # of dimensions
 // V = variance of Dn
 // mean(i) =  the mean distance between all points in Dn and a centroid. 
-func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.VectorMeasurer) float64 {
+func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer VectorMeasurer) float64 {
 	dist := measurer.CalcDist(point, mean)
 	stddev := math.Sqrt(V)
 	sqrt2pi := math.Sqrt(2.0 * math.Pi)
@@ -624,28 +763,33 @@ func normDist(M, V float64, point, mean *matrix.DenseMatrix,  measurer matutil.V
 // All logs are log e.  The right 3 terms are summed to ts for the loop.
 //
 // N.B. When applying this to a model with no parent cluster as in evaluating 
-// the model for D, then R = Rn and [[R_n logR_n - R logR] = 0.
+// the model for D, then R = Rn and hence [[R_n logR_n - R logR] = 0.
 //
-// Refer to Notes on Bayesian Information Criterion Calculation equation.
-// N.B. n is actually a subscript but was written this way to make the equation
-//      legible.
+// Refer to Notes on Bayesian Information Criterion Calculation equation
+// for derivation.
 //
-//         /                                                                              \
-// __ K    |    R_n     R_n * M                     R_n - K                                |
-// \       | -  ---  -  -------  * log(variance) - --------  + (R_n * logR_n - R_n * logR) |
-// /_ n=1  |     2        2                           2                                    |
-//         \                                                                              /
+//          /                   R M                               \ 
+//  __ K    |                    n                       1        | 
+// \        |R logR  - R logR - ---log(2pi * variance) - -(R  - 1)| 
+// /__ n = 1\ n    n    n        2                       2  n     / 
 //
 func loglikelih(R int, c []cluster) float64 {
 	ll := float64(0)
-	for i := 0; i < int(len(c)); i++ {
-		fRn := float64(c[i].numpoints())
-		t1 := (fRn / 2.0) * math.Log(2.0 * math.Pi)
-		t2 := ((fRn * float64(c[i].dim)) / 2.0) * math.Log(c[i].variance)
-		t3 := (fRn - float64(c[i].numcentroids())) / 2.0
-		t4 := fRn * math.Log(fRn) - fRn * math.Log(float64(R))
 
-		ll += (-t1 - t2 - t3 + t4)
+	for i := 0; i < int(len(c)); i++ {
+		fRn := float64(c[i].Numpoints())
+		t1 := fRn * math.Log(fRn)
+		t2 :=  fRn * math.Log(float64(R))
+		// This is the Bob's Your Uncle smoothing factor.  If the variance is 
+		// zero , the fit can't be any better and will drive the log
+		// likelihood to Infinity.
+		if c[i].Variance == 0 {
+			c[i].Variance = math.Nextafter(0, 1)
+		} 
+		t3 := ((fRn * float64(c[i].Dim())) / 2)  * math.Log((2 * math.Pi) * c[i].Variance)
+		t4 := ((fRn - 1) / 2)
+
+		ll += (t1 - t2 - t3 - t4)
 	}
 	return ll
 }
@@ -684,12 +828,13 @@ func freeparams(K, M int) int {
 //      j       j         2       
 //
 func bic(loglikelih float64, numparams, R int) (float64) {
-	return loglikelih - (float64(numparams) / 2.0) - math.Log(float64(R))
+	return loglikelih - (float64(numparams) / 2.0) * math.Log(float64(R))
 }
 
-// calcbic calculate BIC from R, M, and a slice of clusters
+// calcbic calculates BIC from R, M, and a slice of clusters
 func calcbic(R, M int, clusters []cluster) float64 {
 	ll := loglikelih(R, clusters)
 	numparams := freeparams(len(clusters), M)
 	return  bic(ll, numparams, R)
 }
+
