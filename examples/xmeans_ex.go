@@ -9,7 +9,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/bobhancock/goxmeans"
+//	"github.com/bobhancock/goxmeans"
+	"goxmeans"
 	"os"
 	"flag"
 	"runtime/pprof"
