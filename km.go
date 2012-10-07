@@ -32,6 +32,7 @@ import (
 	"strings"
 	"runtime"
 //	"log"
+//	"time"
 	"github.com/bobhancock/gomatrix/matrix"
 )
 
@@ -110,6 +111,7 @@ func Load(fname, sep string) (*matrix.DenseMatrix, error) {
 		data = append(data, t...)
 	}
 	mat := matrix.MakeDenseMatrix(data, linenum, cols)
+	//fmt.Println(time.Now())n // flag for debugging
 	return mat, nil
 }
 
@@ -396,9 +398,9 @@ func bisect(clustersToBisect []cluster, R, M int, bisectcc CentroidChooser,  mea
 	// You would do this if you wanted to keep bisecting until only
 	// the parent won.
 	//for len(clustersToBisect) > 0  {
-	bijobs := make(chan bisectJob, numworkers)
-	biresults := make(chan bisectResult, int(math.Min(1024, bufsize)))
-	bidone := make(chan int, numworkers)
+	bijobs := make(chan bisectJob, 1024)
+	biresults := make(chan bisectResult, 1024)
+	bidone := make(chan int, 1024)
 		
 	go addBisectJobs(bijobs, clustersToBisect, bisectcc, measurer, biresults)
 	for i := 0; i < numworkers; i++ {
@@ -468,9 +470,9 @@ func kmeans(datapoints, centroids *matrix.DenseMatrix, measurer VectorMeasurer) 
 		clusterChanged = false
 		clusters = make([]cluster, 0)
 
-		jobs := make(chan PairPointCentroidJob, numworkers)
-		results := make(chan PairPointCentroidResult, minimum(1024, R))
-		done := make(chan int, numworkers)
+		jobs := make(chan PairPointCentroidJob, 1024)
+		results := make(chan PairPointCentroidResult, 1024)
+		done := make(chan int, 1024)
 
 		// Pair each point with its closest centroid.
 		go addPairPointCentroidJobs(jobs, datapoints, centroids, measurer, results)

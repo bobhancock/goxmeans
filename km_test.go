@@ -472,7 +472,7 @@ func TestXmeans(t *testing.T) {
 	
 	for i, m := range models {
 		if m.Bic == 0 {
-			t.Errorf("%d: model BIC is 0.")
+			t.Errorf("%d: model BIC is 0.", i)
 		}
 
 		clustpts := 0
