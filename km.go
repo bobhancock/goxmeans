@@ -32,7 +32,7 @@ import (
 	"strings"
 	"runtime"
 //	"log"
-	"time"
+//	"time"
 	"github.com/bobhancock/gomatrix/matrix"
 )
 
@@ -111,7 +111,7 @@ func Load(fname, sep string) (*matrix.DenseMatrix, error) {
 		data = append(data, t...)
 	}
 	mat := matrix.MakeDenseMatrix(data, linenum, cols)
-	fmt.Println(time.Now())
+	//fmt.Println(time.Now())n // flag for debugging
 	return mat, nil
 }
 

@@ -111,3 +111,5 @@ Ralph Yozzo
 Versions
 =========
 0.1  Initial release.
+
+0.1a Performance ehnancements, test fixes
