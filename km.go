@@ -356,7 +356,8 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, k, kmax int,  cc, bisectc
 		bimodel := bisect(model.Clusters, R, M, bisectcc, measurer)
 		numCentroids := len(bimodel.Clusters)
 //		log.Printf("bisect returned %d clusters\n", numCentroids)
-		models = append(models, model)
+		
+		models = append(models, bimodel)
 
 		var cent *matrix.DenseMatrix
 				
@@ -371,7 +372,10 @@ func Xmeans(datapoints, centroids *matrix.DenseMatrix, k, kmax int,  cc, bisectc
 				errs["ApppendRow"] = err
 				break
 			} 
-			k++
+		}
+		if numCentroids == k {
+			// there were no bisections performed, so we have hit the end of the line
+			break
 		} else {
 			k = numCentroids
 		}
