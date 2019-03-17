@@ -229,7 +229,7 @@ parts: a model-dependent part and a model-independent part.
   \label{eq:16}
   \hat{l}(D, \phi) &= \sum_{n=1}^{K(\phi)} R_n(\phi) \log R_n(\phi) - R \log R - \frac{RM}{2} \log \left(2 \pi \hat{\sigma}(\phi)^2 \right)
                    - \frac{M}{2} \left( R - K(\phi) \right) \\
-                   &= \left[ \sum_{n=1}^{K(\phi)} R_n(\phi) \log R_n(\phi) - \frac{M K(\phi)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi)^2 \right) \right] \nonumber \\
+                   &= \left[ \sum_{n=1}^{K(\phi)} R_n(\phi) \log R_n(\phi) + \frac{M K(\phi)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi)^2 \right) \right] \nonumber \\
                    & \quad - \left[ \frac{M R}{2} + R \log R + \frac{RM}{2} \log 2 \pi \right] \\
                    &= \hat{l}_{\text{model-dependent}}(D, \phi) + \hat{l}_{\text{model-independent}}(D)
 \end{align}
@@ -244,8 +244,8 @@ Using the definition of the $BIC$ and eliminating the model-independent terms,
 This gives a final test of the form
 \begin{multline}
   \label{eq:18}
-  \left[ \sum_{n=1}^{K(\phi_2)} R_n(\phi_2) \log R_n(\phi_2) - \frac{M K(\phi_2)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi_2)^2 \right) \right] - \frac{p_{\phi_2}}{2} \log R \\
-   > \left[ \sum_{n=1}^{K(\phi_1)} R_n(\phi_1) \log R_n(\phi_1) - \frac{M K(\phi_1)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi_1)^2 \right) \right] - \frac{p_{\phi_1}}{2} \log R
+  \left[ \sum_{n=1}^{K(\phi_2)} R_n(\phi_2) \log R_n(\phi_2) + \frac{M K(\phi_2)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi_2)^2 \right) \right] - \frac{p_{\phi_2}}{2} \log R \\
+   > \left[ \sum_{n=1}^{K(\phi_1)} R_n(\phi_1) \log R_n(\phi_1) + \frac{M K(\phi_1)}{2} - \frac{RM}{2} \log \left( \hat{\sigma}(\phi_1)^2 \right) \right] - \frac{p_{\phi_1}}{2} \log R
 \end{multline}
 %
 If this inequality holds, $\phi_2$ is considered a better model the $\phi_1$.
